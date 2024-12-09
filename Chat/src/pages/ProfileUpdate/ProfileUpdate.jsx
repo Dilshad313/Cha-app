@@ -21,7 +21,7 @@ function ProfileUpdate(){
     event.preventDefault();
     try{
 
-      if (!prevImage && image ){
+      if (!prevImage && !image ){
         toast.error("Upload profile Picture..")
       }
 
