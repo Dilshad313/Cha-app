@@ -1,9 +1,11 @@
+
 import React, { useState } from "react";
 import "./Login.css";
 import assets from "../../assets/assets";
-import { signup, login } from "../../config/firebase";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
   const [currState, setCurrState] = useState("Sign Up");
@@ -11,6 +13,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const navigate = useNavigate();
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
@@ -27,17 +30,51 @@ function Login() {
         return;
       }
       try {
-        await signup(userName, email, password);
+        const config = {
+          headers: {
+            "Content-type": "application/json",
+          },
+        };
+
+        const { data } = await axios.post(
+          "/api/user",
+          { name: userName, email, password },
+          config
+        );
+
         toast.success("Account created successfully!");
+        localStorage.setItem("userInfo", JSON.stringify(data));
+        navigate("/chat");
       } catch (error) {
-        toast.error(error.message || "Error during sign-up!");
+        if (error.response && error.response.data && error.response.data.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error("Error during sign-up!");
+        }
       }
     } else {
       try {
-        await login(email, password);
+        const config = {
+          headers: {
+            "Content-type": "application/json",
+          },
+        };
+
+        const { data } = await axios.post(
+          "/api/user/login",
+          { email, password },
+          config
+        );
+
         toast.success("Logged in successfully!");
+        localStorage.setItem("userInfo", JSON.stringify(data));
+        navigate("/chat");
       } catch (error) {
-        toast.error(error.message || "Error during login!");
+        if (error.response && error.response.data && error.response.data.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error("Error during login!");
+        }
       }
     }
   };

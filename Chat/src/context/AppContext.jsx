@@ -1,59 +1,45 @@
-import { createContext, useState } from "react";
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from "../config/firebase"
+
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const AppContext = createContext();
 
-export const AppContext = createContext();
+const AppContextProvider = ({ children }) => {
+  const [selectedChat, setSelectedChat] = useState();
+  const [user, setUser] = useState();
+  const [notification, setNotification] = useState([]);
+  const [chats, setChats] = useState([]);
 
-const AppContextProvider = (props) =>{
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
-    const [userData, setUserData] = useState(null);
-    const [chatData, setChatData] = useState(null);
+  useEffect(() => {
+    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+    setUser(userInfo);
 
-    const loadUserData = async (uid) =>{
-        try{
-            const userRef = doc(db,"users",uid);
-            const userSnap = await getDoc(userRef)
-            const userData = userSnap.data();
-            setUserData(userData);
+    if (!userInfo) navigate("/");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
-            if (userData.avatar && userData.name){
-                navigate('/chat');
-            }
-            else{
-                navigate('/profile');
-            }
+  return (
+    <AppContext.Provider
+      value={{
+        selectedChat,
+        setSelectedChat,
+        user,
+        setUser,
+        notification,
+        setNotification,
+        chats,
+        setChats,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+};
 
-            await updateDoc(userRef,{
-                lastSeen:Date.now()
-            })
+export const ChatState = () => {
+  return useContext(AppContext);
+};
 
-            setInterval(async () => {
-                if (auth.chatUser){
-                    await updateDoc(userRef,{
-                        lastSeen:Date.now()
-                    })
-                }
-            }, 60000);
-        }
-        catch (error){
-
-        }
-    }
-
-    const value = {
-        userData, setUserData,
-        chatData, setChatData,
-        loadUserData,
-    }
-
-    return (
-        <AppContext.Provider value={value}>
-            {props.children}
-        </AppContext.Provider>
-    )
-}
-
-export default AppContextProvider
+export default AppContextProvider;
