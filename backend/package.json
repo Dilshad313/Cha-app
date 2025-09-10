@@ -11,12 +11,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "mongoose": "^8.9.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.1",
     "multer": "^1.4.4",
-    "multer-gridfs-storage": "^5.0.2"
+    "multer-gridfs-storage": "^5.0.2",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
