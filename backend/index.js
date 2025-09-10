@@ -11,6 +11,7 @@ import chatRoutes from "./routes/chats.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { testCloudinaryConnection, configureCloudinary } from "./config/cloudinary.js";
+import { JWT_SECRET } from "./config/auth.js";
 
 const app = express();
 const server = createServer(app);
@@ -27,7 +28,7 @@ connectDB();
 // Configure and test Cloudinary
 configureCloudinary();
 
-// Test Cloudinary connection after a short delay (to ensure env vars are loaded)
+// Test Cloudinary connection after a short delay
 setTimeout(() => {
   testCloudinaryConnection();
 }, 1000);
@@ -47,7 +48,8 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
     database: "Connected",
-    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? "Configured" : "Not Configured"
+    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? "Configured" : "Not Configured",
+    jwt: process.env.JWT_SECRET ? "Configured" : "Using Development Key"
   });
 });
 
@@ -88,4 +90,5 @@ server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:3000"}`);
   console.log(`☁️ Cloudinary Cloud: ${process.env.CLOUDINARY_CLOUD_NAME || "Not configured"}`);
+  console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? "Configured" : "Using Development Key"}`);
 });
