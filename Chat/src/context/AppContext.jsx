@@ -1,59 +1,135 @@
-import { createContext, useState } from "react";
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from "../config/firebase"
-import { useNavigate } from "react-router-dom";
+import { createContext, useState, useContext } from 'react';
+import { authAPI, usersAPI } from '../config/api';
+import { io } from 'socket.io-client';
 
+const AppContext = createContext();
 
-export const AppContext = createContext();
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};
 
-const AppContextProvider = (props) =>{
+export const AppProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [currentChat, setCurrentChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [socket, setSocket] = useState(null);
 
-    const navigate = useNavigate();
-    const [userData, setUserData] = useState(null);
-    const [chatData, setChatData] = useState(null);
+  // Initialize socket connection
+  const initSocket = (token) => {
+    const newSocket = io(import.meta.env.VITE_API_BASE_URL, {
+      auth: { token }
+    });
+    
+    newSocket.on('connect', () => {
+      console.log('Connected to server');
+    });
+    
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+    
+    setSocket(newSocket);
+    return newSocket;
+  };
 
-    const loadUserData = async (uid) =>{
-        try{
-            const userRef = doc(db,"users",uid);
-            const userSnap = await getDoc(userRef)
-            const userData = userSnap.data();
-            setUserData(userData);
-
-            if (userData.avatar && userData.name){
-                navigate('/chat');
-            }
-            else{
-                navigate('/profile');
-            }
-
-            await updateDoc(userRef,{
-                lastSeen:Date.now()
-            })
-
-            setInterval(async () => {
-                if (auth.chatUser){
-                    await updateDoc(userRef,{
-                        lastSeen:Date.now()
-                    })
-                }
-            }, 60000);
-        }
-        catch (error){
-
-        }
+  // Load user data
+  const loadUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+      
+      const response = await usersAPI.getProfile();
+      setUser(response.data.user);
+      
+      // Initialize socket connection
+      initSocket(token);
+      
+      return response.data.user;
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      localStorage.removeItem('token');
+      throw error;
     }
+  };
 
-    const value = {
-        userData, setUserData,
-        chatData, setChatData,
-        loadUserData,
+  // Login user
+  const loginUser = async (email, password) => {
+    try {
+      const response = await authAPI.login({ email, password });
+      localStorage.setItem('token', response.data.token);
+      setUser(response.data.user);
+      
+      // Initialize socket connection
+      initSocket(response.data.token);
+      
+      return response.data;
+    } catch (error) {
+      throw error;
     }
+  };
 
-    return (
-        <AppContext.Provider value={value}>
-            {props.children}
-        </AppContext.Provider>
-    )
-}
+  // Register user
+  const registerUser = async (userData) => {
+    try {
+      const response = await authAPI.register(userData);
+      localStorage.setItem('token', response.data.token);
+      setUser(response.data.user);
+      
+      // Initialize socket connection
+      initSocket(response.data.token);
+      
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
 
-export default AppContextProvider
+  // Logout user
+  const logoutUser = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      setUser(null);
+      setChats([]);
+      setCurrentChat(null);
+      setMessages([]);
+      
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    }
+  };
+
+  const value = {
+    user,
+    setUser,
+    chats,
+    setChats,
+    currentChat,
+    setCurrentChat,
+    messages,
+    setMessages,
+    socket,
+    loadUserData,
+    loginUser,
+    registerUser,
+    logoutUser,
+  };
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export default AppProvider;

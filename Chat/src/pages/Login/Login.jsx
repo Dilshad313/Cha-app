@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import "./Login.css";
 import assets from "../../assets/assets";
-import { signup, login } from "../../config/firebase";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useApp } from "../../context/AppContext";
+import { toast } from "react-toastify";
 
 function Login() {
   const [currState, setCurrState] = useState("Sign Up");
@@ -11,40 +10,35 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const { loginUser, registerUser } = useApp();
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
 
-    // Validate checkbox
     if (!termsAccepted) {
       toast.error("You must accept the terms of use!");
       return;
     }
 
-    if (currState === "Sign Up") {
-      if (!userName.trim()) {
-        toast.error("Username is required!");
-        return;
-      }
-      try {
-        await signup(userName, email, password);
+    try {
+      if (currState === "Sign Up") {
+        if (!userName.trim()) {
+          toast.error("Username is required!");
+          return;
+        }
+        await registerUser({ username: userName, email, password, name: userName });
         toast.success("Account created successfully!");
-      } catch (error) {
-        toast.error(error.message || "Error during sign-up!");
-      }
-    } else {
-      try {
-        await login(email, password);
+      } else {
+        await loginUser(email, password);
         toast.success("Logged in successfully!");
-      } catch (error) {
-        toast.error(error.message || "Error during login!");
       }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
   return (
     <div className="login">
-      <ToastContainer />
       <img src={assets.logo_big} alt="Logo" className="logo" />
       <form onSubmit={onSubmitHandler} className="login-form">
         <h2>{currState}</h2>
