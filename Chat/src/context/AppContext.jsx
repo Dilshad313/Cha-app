@@ -1,4 +1,4 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI, usersAPI } from '../config/api';
 import { io } from 'socket.io-client';
 
@@ -18,6 +18,17 @@ export const AppProvider = ({ children }) => {
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check for existing token on app load
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadUserData();
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   // Initialize socket connection
   const initSocket = (token) => {
@@ -27,10 +38,23 @@ export const AppProvider = ({ children }) => {
     
     newSocket.on('connect', () => {
       console.log('Connected to server');
+      // Notify server that user is online
+      newSocket.emit('user-online');
     });
     
     newSocket.on('disconnect', () => {
       console.log('Disconnected from server');
+    });
+
+    // Handle incoming messages
+    newSocket.on('receive-message', (message) => {
+      setMessages(prev => [...prev, message]);
+    });
+
+    // Handle typing indicators
+    newSocket.on('user-typing', (data) => {
+      // Implement typing indicator logic here
+      console.log('User typing:', data);
     });
     
     setSocket(newSocket);
@@ -54,6 +78,8 @@ export const AppProvider = ({ children }) => {
       console.error('Error loading user data:', error);
       localStorage.removeItem('token');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,7 +115,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Logout user
+  // Logout user - FIXED VERSION
   const logoutUser = async () => {
     try {
       await authAPI.logout();
@@ -106,6 +132,37 @@ export const AppProvider = ({ children }) => {
         socket.disconnect();
         setSocket(null);
       }
+      
+      // Force reload to clear all state
+      window.location.href = '/';
+    }
+  };
+
+  // Send message function for real-time chat
+  const sendMessage = (chatId, content, image = null) => {
+    if (socket) {
+      socket.emit('send-message', {
+        chatId,
+        message: {
+          content,
+          image,
+          timestamp: new Date()
+        }
+      });
+    }
+  };
+
+  // Join chat room
+  const joinChat = (chatId) => {
+    if (socket) {
+      socket.emit('join-chat', chatId);
+    }
+  };
+
+  // Typing indicator
+  const sendTypingIndicator = (chatId, isTyping) => {
+    if (socket) {
+      socket.emit('typing', { chatId, isTyping });
     }
   };
 
@@ -119,15 +176,19 @@ export const AppProvider = ({ children }) => {
     messages,
     setMessages,
     socket,
+    loading,
     loadUserData,
     loginUser,
     registerUser,
     logoutUser,
+    sendMessage,
+    joinChat,
+    sendTypingIndicator
   };
 
   return (
     <AppContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AppContext.Provider>
   );
 };

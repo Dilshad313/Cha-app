@@ -111,7 +111,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Logout user
+// Logout user - FIXED VERSION
 export const logout = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);

@@ -11,7 +11,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// Update user profile
+// Update user profile - FIXED VERSION
 export const updateProfile = async (req, res) => {
   try {
     const { name, bio } = req.body;
@@ -19,15 +19,29 @@ export const updateProfile = async (req, res) => {
 
     // If there's a file, upload to Cloudinary
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer);
-      avatarUrl = result.secure_url;
+      try {
+        const result = await uploadToCloudinary(req.file.buffer);
+        avatarUrl = result.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({ message: 'Error uploading image' });
+      }
+    }
+
+    const updates = { name, bio };
+    if (avatarUrl) {
+      updates.avatar = avatarUrl;
     }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { name, bio, avatar: avatarUrl },
-      { new: true }
+      updates,
+      { new: true, runValidators: true }
     ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     res.json({ success: true, user });
   } catch (error) {

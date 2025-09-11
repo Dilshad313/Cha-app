@@ -1,15 +1,25 @@
 import React from 'react'
 import './RightSidebar.css'
 import assets from '../../assets/assets'
-import { logout } from '../../config/firebase'
+import { useApp } from '../../context/AppContext'
 
 function RightSidebar() {
+  const { logoutUser, user } = useApp();
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
+
   return (
     <div className='rs'>
       <div className="rs-profile">
-        <img src={assets.profile_img} alt="" />
-        <h3>Richard Sanford <img className='dot' src={assets.green_dot} alt="" /></h3>
-        <p>Hey, Thre i am Richard Sanford using chat app</p>
+        <img src={user?.avatar || assets.profile_img} alt="Profile" />
+        <h3>{user?.name || 'User'} <img className='dot' src={assets.green_dot} alt="" /></h3>
+        <p>{user?.bio || 'Hey, There I am using chat app'}</p>
       </div>
       <hr />
       <div className="rs-media">
@@ -23,7 +33,7 @@ function RightSidebar() {
           <img src={assets.pic2} alt="" />
         </div>
       </div>
-      <button onClick={()=>logout()}>Logout</button>
+      <button onClick={handleLogout}>Logout</button>
     </div>
   )
 }

@@ -11,7 +11,8 @@ import chatRoutes from "./routes/chats.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { testCloudinaryConnection, configureCloudinary } from "./config/cloudinary.js";
-import { JWT_SECRET } from "./config/auth.js";
+import { verifyToken } from "./config/auth.js";
+import User from "./models/User.js";
 
 const app = express();
 const server = createServer(app);
@@ -53,35 +54,86 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Socket.io for real-time messaging
+// Socket.io for real-time messaging with authentication
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication error'));
+    }
+    
+    const decoded = verifyToken(token);
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return next(new Error('Authentication error'));
+    }
+    
+    socket.userId = user._id.toString();
+    next();
+  } catch (error) {
+    next(new Error('Authentication error'));
+  }
+});
+
 io.on("connection", (socket) => {
-  console.log("✅ User connected:", socket.id);
+  console.log("✅ User connected:", socket.userId);
 
   // Join user personal room
-  socket.on("join-user", (userId) => {
-    socket.join(userId);
-    console.log(`User ${userId} joined personal room`);
-  });
+  socket.join(socket.userId);
 
   // Join chat room
   socket.on("join-chat", (chatId) => {
     socket.join(chatId);
-    console.log(`User joined chat: ${chatId}`);
+    console.log(`User ${socket.userId} joined chat: ${chatId}`);
   });
 
   // Send message
-  socket.on("send-message", ({ chatId, message }) => {
-    socket.to(chatId).emit("receive-message", { chatId, message });
+  socket.on("send-message", async (data) => {
+    try {
+      // Save message to database first (this would be handled by your API)
+      // Then broadcast to all users in the chat
+      socket.to(data.chatId).emit("receive-message", {
+        ...data.message,
+        sender: socket.userId,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   });
 
   // Typing indicator
-  socket.on("typing", ({ chatId, userId, isTyping }) => {
-    socket.to(chatId).emit("user-typing", { userId, isTyping });
+  socket.on("typing", (data) => {
+    socket.to(data.chatId).emit("user-typing", {
+      userId: socket.userId,
+      isTyping: data.isTyping
+    });
+  });
+
+  // User online status
+  socket.on("user-online", async () => {
+    try {
+      await User.findByIdAndUpdate(socket.userId, {
+        isOnline: true,
+        lastSeen: new Date()
+      });
+      console.log(`User ${socket.userId} is online`);
+    } catch (error) {
+      console.error("Error updating online status:", error);
+    }
   });
 
   // Disconnect
-  socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
+  socket.on("disconnect", async () => {
+    try {
+      await User.findByIdAndUpdate(socket.userId, {
+        isOnline: false,
+        lastSeen: new Date()
+      });
+      console.log("❌ User disconnected:", socket.userId);
+    } catch (error) {
+      console.error("Error updating offline status:", error);
+    }
   });
 });
 
