@@ -57,14 +57,6 @@ function Login() {
               className="form-input"
               required
             />
-            <input
-              onChange={(e) => setName(e.target.value)}
-              value={name}
-              type="text"
-              placeholder="Your Name"
-              className="form-input"
-              required
-            />
           </>
         )}
         <input
