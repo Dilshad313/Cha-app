@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import assets from "../../assets/assets";
 import { useApp } from "../../context/AppContext";
@@ -7,10 +8,12 @@ import { toast } from "react-toastify";
 function Login() {
   const [currState, setCurrState] = useState("Sign Up");
   const [userName, setUserName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { loginUser, registerUser } = useApp();
+  const navigate = useNavigate();
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
@@ -22,15 +25,17 @@ function Login() {
 
     try {
       if (currState === "Sign Up") {
-        if (!userName.trim()) {
-          toast.error("Username is required!");
+        if (!userName.trim() || !name.trim()) {
+          toast.error("Username and name are required!");
           return;
         }
-        await registerUser({ username: userName, email, password, name: userName });
+        await registerUser({ username: userName, email, password, name });
         toast.success("Account created successfully!");
+        navigate("/chat");
       } else {
         await loginUser(email, password);
         toast.success("Logged in successfully!");
+        navigate("/chat");
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message);
@@ -43,14 +48,24 @@ function Login() {
       <form onSubmit={onSubmitHandler} className="login-form">
         <h2>{currState}</h2>
         {currState === "Sign Up" && (
-          <input
-            onChange={(e) => setUserName(e.target.value)}
-            value={userName}
-            type="text"
-            placeholder="Username"
-            className="form-input"
-            required
-          />
+          <>
+            <input
+              onChange={(e) => setUserName(e.target.value)}
+              value={userName}
+              type="text"
+              placeholder="Username"
+              className="form-input"
+              required
+            />
+            <input
+              onChange={(e) => setName(e.target.value)}
+              value={name}
+              type="text"
+              placeholder="Your Name"
+              className="form-input"
+              required
+            />
+          </>
         )}
         <input
           onChange={(e) => setEmail(e.target.value)}
