@@ -14,6 +14,8 @@ import { testCloudinaryConnection, configureCloudinary } from "./config/cloudina
 import { verifyToken } from "./config/auth.js";
 import User from "./models/User.js";
 
+const port = process.env.PORT || 5000;
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
