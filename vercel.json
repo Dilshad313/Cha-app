@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "Chat/package.json",
+      "use": "@vercel/static-build"
+    },
+    {
       "src": "backend/index.js",
       "use": "@vercel/node"
     }
@@ -9,18 +13,14 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/backend/index.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization"
-      }
+      "dest": "backend/index.js"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/backend/index.js",
-      "methods": ["GET", "OPTIONS"]
+      "dest": "index.html"
     }
   ],
   "env": {
