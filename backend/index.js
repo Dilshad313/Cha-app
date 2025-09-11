@@ -1,3 +1,4 @@
+// Enhanced backend/index.js
 import dotenv from "dotenv";
 // Load environment variables FIRST
 dotenv.config();
@@ -18,17 +19,27 @@ connectDB();
 // Configure Cloudinary
 configureCloudinary();
 
-// CORS configuration - UPDATED
+// Enhanced CORS configuration
+const allowedOrigins = [
+  'https://real-chat-app-silk.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://your-frontend-domain.vercel.app', // Replace with your actual frontend domain
-    process.env.FRONTEND_URL
-  ].filter(Boolean), // Remove any falsy values
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
 app.use(cors(corsOptions));
@@ -54,6 +65,25 @@ app.get("/api/health", (req, res) => {
     jwt: process.env.JWT_SECRET ? "Configured" : "Using Development Key",
     cors: "Enabled"
   });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ message: 'CORS policy violation' });
+  }
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
+
+// Handle 404
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 // Export the app for Vercel

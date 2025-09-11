@@ -1,10 +1,12 @@
+// Enhanced frontend api.js
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backend-chat-app-one.vercel.app/api';
 
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 10000, // 10 second timeout
 });
 
 // Add token to requests
@@ -25,10 +27,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout');
+      return Promise.reject(new Error('Request timeout. Please try again.'));
+    }
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/';
     }
+    
+    if (error.response?.status === 403) {
+      console.error('CORS error or access denied');
+      return Promise.reject(new Error('Access denied. Please check your connection.'));
+    }
+    
+    if (!error.response) {
+      console.error('Network error');
+      return Promise.reject(new Error('Network error. Please check your internet connection.'));
+    }
+    
     return Promise.reject(error);
   }
 );
