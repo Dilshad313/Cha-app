@@ -2,6 +2,8 @@ import User from '../models/User.js';
 import Chat from '../models/Chat.js';
 import { generateToken } from '../config/auth.js';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { sendPasswordResetEmail } from '../utils/emailService.js';
 
 // Register a new user
 export const register = async (req, res) => {
@@ -125,5 +127,59 @@ export const logout = async (req, res) => {
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({ message: 'Server error during logout' });
+  }
+};
+
+// Forgot password
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log('Forgot password request for:', email);
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    console.log('User found:', user ? user.email : 'No user found');
+
+    if (!user) {
+      // For security, don't reveal if email exists
+      return res.json({ 
+        success: true, 
+        message: 'If the email exists, a password reset link has been sent' 
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set token and expiration (1 hour)
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+    console.log('Reset token set for user:', user.email);
+
+    // Send email
+    try {
+      await sendPasswordResetEmail(email, resetToken);
+      console.log('Email sent successfully to:', email);
+      res.json({ 
+        success: true, 
+        message: 'If the email exists, a password reset link has been sent' 
+      });
+    } catch (emailError) {
+      console.error('Email error:', emailError);
+      // Reset the token if email fails
+      user.resetPasswordToken = "";
+      user.resetPasswordExpires = null;
+      await user.save();
+      return res.status(500).json({ message: 'Error sending password reset email' });
+    }
+
+  } catch (error) {
+    console.error('Forgot password error details:', error);
+    res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };

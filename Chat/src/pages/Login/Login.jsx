@@ -4,6 +4,7 @@ import "./Login.css";
 import assets from "../../assets/assets";
 import { useApp } from "../../context/AppContext";
 import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
 
 function Login() {
   const [currState, setCurrState] = useState("Sign Up");
@@ -98,6 +99,11 @@ function Login() {
               <span onClick={() => setCurrState("Sign Up")}>Click here</span>
             </p>
           )}
+        </div>
+        <div className="login-forgot">
+          <Link to="/forgot-password" className="forgot-link">
+            Forgot Password?
+          </Link>
         </div>
       </form>
     </div>
