@@ -4,6 +4,28 @@ import { authAPI } from '../../config/api';
 import { toast } from 'react-toastify';
 import './ResetPassword.css';
 
+const PasswordStrengthIndicator = ({ password }) => {
+  const getStrength = () => {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+  };
+
+  const strength = getStrength();
+  const strengthText = ['Weak', 'Medium', 'Strong', 'Very Strong', 'Excellent'][strength - 1] || '';
+
+  return (
+    <div className="password-strength-indicator">
+      <div className={`strength-bar strength-${strength}`}></div>
+      <div className="strength-text">{strengthText}</div>
+    </div>
+  );
+};
+
 function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -11,6 +33,13 @@ function ResetPassword() {
   const [token, setToken] = useState('');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [passwordValidity, setPasswordValidity] = useState({
+    minLength: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    specialChar: false,
+  });
 
   useEffect(() => {
     const tokenParam = searchParams.get('token');
@@ -21,6 +50,22 @@ function ResetPassword() {
     setToken(tokenParam);
   }, [searchParams, navigate]);
 
+  const validatePassword = (password) => {
+    setPasswordValidity({
+      minLength: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      specialChar: /[^A-Za-z0-9]/.test(password),
+    });
+  };
+
+  const handlePasswordChange = (e) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    validatePassword(newPassword);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -29,8 +74,9 @@ function ResetPassword() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    const isPasswordValid = Object.values(passwordValidity).every(Boolean);
+    if (!isPasswordValid) {
+      toast.error('Password does not meet all the requirements.');
       return;
     }
 
@@ -47,6 +93,9 @@ function ResetPassword() {
     }
   };
 
+  const isFormValid = Object.values(passwordValidity).every(Boolean) && password === confirmPassword;
+
+
   return (
     <div className="reset-password">
       <div className="reset-container">
@@ -59,10 +108,19 @@ function ResetPassword() {
               type="password"
               placeholder="New password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               required
-              minLength={6}
             />
+            <PasswordStrengthIndicator password={password} />
+            <div className="password-requirements">
+              <ul>
+                <li className={passwordValidity.minLength ? 'valid' : 'invalid'}>At least 8 characters</li>
+                <li className={passwordValidity.uppercase ? 'valid' : 'invalid'}>An uppercase letter</li>
+                <li className={passwordValidity.lowercase ? 'valid' : 'invalid'}>A lowercase letter</li>
+                <li className={passwordValidity.number ? 'valid' : 'invalid'}>A number</li>
+                <li className={passwordValidity.specialChar ? 'valid' : 'invalid'}>A special character</li>
+              </ul>
+            </div>
             
             <input
               type="password"
@@ -70,10 +128,9 @@ function ResetPassword() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength={6}
             />
             
-            <button type="submit" disabled={loading}>
+            <button type="submit" disabled={!isFormValid || loading}>
               {loading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>

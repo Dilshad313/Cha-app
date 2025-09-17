@@ -193,6 +193,18 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Token and new password are required' });
     }
 
+    // Password complexity validation
+    const passwordErrors = [];
+    if (password.length < 8) passwordErrors.push('be at least 8 characters long');
+    if (!/[A-Z]/.test(password)) passwordErrors.push('contain an uppercase letter');
+    if (!/[a-z]/.test(password)) passwordErrors.push('contain a lowercase letter');
+    if (!/[0-9]/.test(password)) passwordErrors.push('contain a number');
+    if (!/[^A-Za-z0-9]/.test(password)) passwordErrors.push('contain a special character');
+
+    if (passwordErrors.length > 0) {
+      return res.status(400).json({ message: `Password must ${passwordErrors.join(', ')}.` });
+    }
+
     // Hash the token from the request to match the one in the DB
     const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
