@@ -82,7 +82,98 @@ app.use('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+// Import http and socket.io
+import http from 'http';
+import { Server } from 'socket.io';
+
+// Create http server
+const server = http.createServer(app);
+
+// Create socket.io server
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Socket.io middleware for authentication
+import jwt from 'jsonwebtoken';
+import User from './models/User.js';
+import Chat from './models/Chat.js';
+
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = await User.findById(decoded.id).select('-password');
+    next();
+  } catch (error) {
+    next(new Error('Authentication error'));
+  }
+});
+
+// Socket.io connection
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // Join chat
+  socket.on('join-chat', (chatId) => {
+    socket.join(chatId);
+    console.log(`User ${socket.id} joined chat ${chatId}`);
+  });
+
+  // Send message
+  socket.on('send-message', async ({ chatId, message }) => {
+    try {
+      const chat = await Chat.findById(chatId);
+      if (!chat) {
+        return; // Or handle error
+      }
+
+      const newMessage = {
+        sender: socket.user._id,
+        content: message.content,
+        timestamp: new Date(),
+        image: message.image // Assuming image is a URL
+      };
+
+      chat.messages.push(newMessage);
+      await chat.save();
+
+      // Populate sender info before emitting
+      const populatedMessage = {
+        ...newMessage,
+        sender: {
+          _id: socket.user._id,
+          name: socket.user.name,
+          avatar: socket.user.avatar
+        }
+      };
+
+      io.to(chatId).emit('receive-message', populatedMessage);
+    } catch (error) {
+      console.error('Error handling message:', error);
+    }
+  });
+
+  // Typing indicator
+  socket.on('typing', ({ chatId, isTyping }) => {
+    socket.to(chatId).emit('user-typing', { userId: socket.id, isTyping });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
