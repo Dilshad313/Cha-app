@@ -9,7 +9,6 @@ import { Link } from "react-router-dom";
 function Login() {
   const [currState, setCurrState] = useState("Sign Up");
   const [userName, setUserName] = useState("");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -26,11 +25,11 @@ function Login() {
 
     try {
       if (currState === "Sign Up") {
-        if (!userName.trim() || !name.trim()) {
+        if (!userName.trim()) {
           toast.error("Username and name are required!");
           return;
         }
-        await registerUser({ username: userName, email, password, name });
+        await registerUser({ username: userName, email, password });
         toast.success("Account created successfully!");
         navigate("/chat");
       } else {
