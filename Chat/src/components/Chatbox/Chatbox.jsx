@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react';
 import './Chatbox.css';
 import assets from '../../assets/assets';
 import { useApp } from '../../context/AppContext';
@@ -8,7 +8,8 @@ function Chatbox() {
   const [newMessage, setNewMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
   const messagesEndRef = useRef(null);
-  const { currentChat, user, socket, sendMessage, joinChat } = useApp();
+  const typingTimeoutRef = useRef(null);
+  const { currentChat, user, socket, sendMessage, joinChat, onlineUsers, typingUsers, sendTypingIndicator } = useApp();
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -31,6 +32,7 @@ function Chatbox() {
     try {
       if (socket) {
         sendMessage(currentChat._id, newMessage, selectedImage);
+        sendTypingIndicator(currentChat._id, false);
       } else {
         // Fallback to API if socket is not available
         const formData = new FormData();
@@ -46,6 +48,22 @@ function Chatbox() {
       setSelectedImage(null);
     } catch (error) {
       console.error('Error sending message:', error);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setNewMessage(e.target.value);
+    if (socket) {
+      if (!typingTimeoutRef.current) {
+        sendTypingIndicator(currentChat._id, true);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTypingIndicator(currentChat._id, false);
+        typingTimeoutRef.current = null;
+      }, 3000);
     }
   };
 
@@ -73,13 +91,22 @@ function Chatbox() {
     );
   }
 
+  const otherParticipant = currentChat.participants.find(p => p._id !== user._id);
+  const isOtherUserOnline = otherParticipant && onlineUsers.includes(otherParticipant._id);
+
+  const typingUserIds = Object.keys(typingUsers)
+    .filter(key => key.startsWith(`${currentChat._id}-`) && typingUsers[key])
+    .map(key => key.split('-')[1]);
+
+  const isTyping = otherParticipant && typingUserIds.includes(otherParticipant._id);
+
   return (
     <div className='chat-box'>
       <div className="chat-user">
-        <img src={currentChat.participants.find(p => p._id !== user._id)?.avatar || assets.profile_img} alt="" />
+        <img src={otherParticipant?.avatar || assets.profile_img} alt="" />
         <p>
-          {currentChat.participants.find(p => p._id !== user._id)?.name || 'Unknown User'}
-          <img className='dot' src={assets.green_dot} alt="" />
+          {otherParticipant?.name || 'Unknown User'}
+          <img className='dot' src={isOtherUserOnline ? assets.green_dot : assets.grey_dot} alt="" />
         </p>
         <img src={assets.help_icon} className='help' alt="" />
       </div>
@@ -98,6 +125,7 @@ function Chatbox() {
             </div>
           </div>
         ))}
+        {isTyping && <div className="typing-indicator">{otherParticipant.name} is typing...</div>}
         <div ref={messagesEndRef} />
       </div>
 
@@ -106,7 +134,7 @@ function Chatbox() {
           type="text" 
           placeholder='Send a Message' 
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={handleInputChange}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
         />
         <input 
@@ -130,4 +158,4 @@ function Chatbox() {
   )
 }
 
-export default Chatbox
+export default Chatbox;

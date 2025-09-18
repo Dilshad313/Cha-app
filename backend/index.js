@@ -118,9 +118,21 @@ io.use(async (socket, next) => {
   }
 });
 
+const onlineUsers = new Map();
+
 // Socket.io connection
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+  console.log('A user connected:', socket.user.name, socket.id);
+
+  // Add user to online users list
+  if (socket.user && socket.user._id) {
+    const userId = socket.user._id.toString();
+    onlineUsers.set(userId, socket.id);
+    socket.broadcast.emit('user-online', userId);
+  }
+
+  // Send online users list to the new user
+  socket.emit('online-users', Array.from(onlineUsers.keys()));
 
   // Join chat
   socket.on('join-chat', (chatId) => {
@@ -164,11 +176,16 @@ io.on('connection', (socket) => {
 
   // Typing indicator
   socket.on('typing', ({ chatId, isTyping }) => {
-    socket.to(chatId).emit('user-typing', { userId: socket.id, isTyping });
+    socket.to(chatId).emit('user-typing', { userId: socket.user._id.toString(), isTyping, chatId });
   });
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+    if (socket.user && socket.user._id) {
+      const userId = socket.user._id.toString();
+      onlineUsers.delete(userId);
+      socket.broadcast.emit('user-offline', userId);
+    }
   });
 });
 

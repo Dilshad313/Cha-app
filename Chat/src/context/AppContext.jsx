@@ -19,6 +19,8 @@ export const AppProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [typingUsers, setTypingUsers] = useState({});
 
   // Check for existing token on app load
   useEffect(() => {
@@ -38,8 +40,6 @@ export const AppProvider = ({ children }) => {
     
     newSocket.on('connect', () => {
       console.log('Connected to server');
-      // Notify server that user is online
-      newSocket.emit('user-online');
     });
     
     newSocket.on('disconnect', () => {
@@ -51,10 +51,37 @@ export const AppProvider = ({ children }) => {
       setMessages(prev => [...prev, message]);
     });
 
+    // Handle online users
+    newSocket.on('online-users', (users) => {
+      setOnlineUsers(users);
+    });
+
+    newSocket.on('user-online', (userId) => {
+      setOnlineUsers(prev => [...prev, userId]);
+    });
+
+    newSocket.on('user-offline', (userId) => {
+      setOnlineUsers(prev => prev.filter(id => id !== userId));
+    });
+
     // Handle typing indicators
-    newSocket.on('user-typing', (data) => {
-      // Implement typing indicator logic here
-      console.log('User typing:', data);
+    const typingTimeouts = {};
+    newSocket.on('user-typing', ({ userId, isTyping, chatId }) => {
+      const key = `${chatId}-${userId}`;
+      if (isTyping) {
+        setTypingUsers(prev => ({ ...prev, [key]: true }));
+        if (typingTimeouts[key]) {
+          clearTimeout(typingTimeouts[key]);
+        }
+        typingTimeouts[key] = setTimeout(() => {
+          setTypingUsers(prev => ({ ...prev, [key]: false }));
+        }, 3000);
+      } else {
+        if (typingTimeouts[key]) {
+          clearTimeout(typingTimeouts[key]);
+        }
+        setTypingUsers(prev => ({ ...prev, [key]: false }));
+      }
     });
     
     setSocket(newSocket);
@@ -127,6 +154,8 @@ export const AppProvider = ({ children }) => {
       setChats([]);
       setCurrentChat(null);
       setMessages([]);
+      setOnlineUsers([]);
+      setTypingUsers({});
       
       if (socket) {
         socket.disconnect();
@@ -177,6 +206,8 @@ export const AppProvider = ({ children }) => {
     setMessages,
     socket,
     loading,
+    onlineUsers,
+    typingUsers,
     loadUserData,
     loginUser,
     registerUser,
