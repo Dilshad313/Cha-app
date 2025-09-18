@@ -122,3 +122,26 @@ export const getChatMessages = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const getFriendRequests = async (req, res) => {
+  try {
+    const requests = await Friend.find({ to: req.user._id, status: 'pending' })
+      .populate('from', 'username name avatar');
+
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Get friend requests error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get friends
+export const getFriends = async (req, res) => {
+  try {
+    const friends = await User.findById(req.user._id).populate('friends', 'username name avatar isOnline lastSeen');
+    res.json({ success: true, friends: friends.friends });
+  } catch (error) {
+    console.error('Get friends error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

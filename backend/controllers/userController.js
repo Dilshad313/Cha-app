@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Friend from '../models/Friend.js';
 import { uploadToCloudinary } from '../config/cloudinary.js';
 
 // Get user profile
@@ -86,6 +87,29 @@ export const getUserById = async (req, res) => {
     res.json({ success: true, user });
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Friend request
+export const getFriendRequests = async (req, res) => {
+  try {
+    const requests = await Friend.find({ to: req.user._id, status: 'pending' })
+      .populate('from', 'username name avatar');
+
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Get friend requests error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getFriends = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate('friends', 'username name avatar isOnline lastSeen');
+    res.json({ success: true, friends: user.friends });
+  } catch (error) {
+    console.error('Get friends error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

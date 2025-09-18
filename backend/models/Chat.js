@@ -19,7 +19,33 @@ const messageSchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now
-  }
+  },
+  edited: {
+    type: Boolean,
+    default: false
+  },
+  editedAt: {
+    type: Date
+  },
+  deleted: {
+    type: Boolean,
+    default: false
+  },
+  reactions: {
+    type: Map,
+    of: [mongoose.Schema.Types.ObjectId],
+    default: {}
+  },
+  readBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    readAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 });
 
 const chatSchema = new mongoose.Schema({

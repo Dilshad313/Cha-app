@@ -39,9 +39,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  
-// Now added
-   resetPasswordToken: {
+  friends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  resetPasswordToken: {
     type: String,
     default: ""
   },
