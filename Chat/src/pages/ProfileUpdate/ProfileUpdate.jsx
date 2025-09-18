@@ -92,6 +92,7 @@ function ProfileUpdate() {
             value={name} 
             type="text" 
             placeholder='Your Name' 
+            name='name'
             required 
           />
           <textarea 
@@ -99,7 +100,6 @@ function ProfileUpdate() {
             value={bio} 
             placeholder='Write profile bio' 
             rows="4"
-            required
           ></textarea>
           <button type="submit" disabled={loading}>
             {loading ? 'Saving...' : 'Save Changes'}
