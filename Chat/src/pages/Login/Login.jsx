@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./Login.css";
+import { useNavigate, Link } from "react-router-dom";
 import assets from "../../assets/assets";
 import { useApp } from "../../context/AppContext";
 import { toast } from "react-toastify";
@@ -43,39 +42,51 @@ function Login() {
   };
 
   return (
-    <div className="login">
-      <img src={assets.logo_big} alt="Logo" className="logo" />
-      <form onSubmit={onSubmitHandler} className="login-form">
-        <h2>{currState}</h2>
+    <div
+      className="min-h-screen bg-[url('/background.png')] bg-cover flex items-center justify-evenly"
+    >
+      <img
+        src={assets.logo_big}
+        alt="Logo"
+        className="w-[max(20vw,200px)]"
+      />
+
+      <form
+        onSubmit={onSubmitHandler}
+        className="bg-white p-6 md:p-8 flex flex-col gap-5 rounded-lg shadow-lg w-full max-w-sm"
+      >
+        <h2 className="text-xl font-medium text-center">{currState}</h2>
+
         {currState === "Sign Up" && (
-          <>
-            <input
-              onChange={(e) => setUserName(e.target.value)}
-              value={userName}
-              type="text"
-              placeholder="Username"
-              className="form-input"
-              required
-            />
-          </>
+          <input
+            onChange={(e) => setUserName(e.target.value)}
+            value={userName}
+            type="text"
+            placeholder="Username"
+            className="p-2 border border-gray-300 rounded outline-[#077eff]"
+            required
+          />
         )}
+
         <input
           onChange={(e) => setEmail(e.target.value)}
           value={email}
           type="email"
           placeholder="Email Address"
-          className="form-input"
+          className="p-2 border border-gray-300 rounded outline-[#077eff]"
           required
         />
+
         <input
           onChange={(e) => setPassword(e.target.value)}
           value={password}
           type="password"
           placeholder="Password"
-          className="form-input"
+          className="p-2 border border-gray-300 rounded outline-[#077eff]"
           required
         />
-        <div className="login-term">
+
+        <div className="flex items-center gap-2 text-xs text-gray-500">
           <input
             type="checkbox"
             checked={termsAccepted}
@@ -83,21 +94,45 @@ function Login() {
           />
           <p>Agree to the terms of use & privacy policy</p>
         </div>
-        <button type="submit">
+
+        <button
+          type="submit"
+          className="p-2 bg-[#077eff] text-white text-base rounded cursor-pointer hover:bg-[#0566d1] transition"
+        >
           {currState === "Sign Up" ? "Create Account" : "Login Now"}
         </button>
-        <div className="login-forgot">
+
+        <div className="flex flex-col gap-2 mt-2 text-center">
           {currState === "Sign Up" ? (
-            <p className="login-toggle">
+            <p className="text-sm text-gray-600">
               Already have an Account?{" "}
-              <span onClick={() => setCurrState("Login")}>Login here</span>
+              <span
+                className="font-medium text-[#077eff] cursor-pointer"
+                onClick={() => setCurrState("Login")}
+              >
+                Login here
+              </span>
             </p>
           ) : (
-            <p className="login-toggle">
+            <p className="text-sm text-gray-600">
               Create an Account?{" "}
-              <span onClick={() => setCurrState("Sign Up")}>Click here</span>
+              <span
+                className="font-medium text-[#077eff] cursor-pointer"
+                onClick={() => setCurrState("Sign Up")}
+              >
+                Click here
+              </span>
             </p>
           )}
+        </div>
+
+        <div className="mt-3 text-center">
+          <Link
+            to="/forgot-password"
+            className="text-blue-600 text-sm hover:underline"
+          >
+            Forgot Password?
+          </Link>
         </div>
       </form>
     </div>

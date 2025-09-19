@@ -1,7 +1,7 @@
 // Enhanced frontend api.js
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backend-chat-app-one.vercel.app/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://real-chat-app-silk.vercel.app/api';
 
 // Create axios instance
 const api = axios.create({
@@ -56,6 +56,8 @@ export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
   logout: () => api.post('/auth/logout'),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 // Users API
@@ -66,6 +68,12 @@ export const usersAPI = {
   }),
   searchUsers: (query) => api.get(`/users/search?q=${encodeURIComponent(query)}`),
   getUser: (id) => api.get(`/users/${id}`),
+
+  sendFriendRequest: (userId) => api.post(`/users/${userId}/friend-request`),
+  acceptFriendRequest: (requestId) => api.post(`/users/friend-request/${requestId}/accept`),
+  rejectFriendRequest: (requestId) => api.post(`/users/friend-request/${requestId}/reject`),
+  getFriendRequests: () => api.get('/users/friend-requests'),
+  getFriends: () => api.get('/users/friends'),
 };
 
 // Chats API
@@ -77,6 +85,15 @@ export const chatsAPI = {
   }),
   getChatMessages: (chatId, page = 1, limit = 50) => 
     api.get(`/chats/${chatId}/messages?page=${page}&limit=${limit}`),
+
+  createGroup: (data) => api.post('/chats', data),
+  addToGroup: (data) => api.post('/chats/group/add', data),
+  removeFromGroup: (data) => api.post('/chats/group/remove', data),
+  editMessage: (chatId, messageId, content) => api.put(`/chats/${chatId}/message/${messageId}`, { content }),
+  deleteMessage: (chatId, messageId) => api.delete(`/chats/${chatId}/message/${messageId}`),
+  addReaction: (chatId, messageId, reaction) => api.post(`/chats/${chatId}/message/${messageId}/reaction`, { reaction }),
+  removeReaction: (chatId, messageId, reaction) => api.delete(`/chats/${chatId}/message/${messageId}/reaction`, { data: { reaction } }),
+  markAsRead: (chatId, messageIds) => api.post(`/chats/${chatId}/read`, { messageIds }),
 };
 
 export default api;

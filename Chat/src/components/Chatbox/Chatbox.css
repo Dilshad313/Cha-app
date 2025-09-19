@@ -101,3 +101,10 @@
     margin-bottom: 30px;
     border-radius: 10px;
 }
+
+.typing-indicator {
+  padding: 0px 15px;
+  font-style: italic;
+  color: #888;
+  font-size: 12px;
+}

@@ -122,3 +122,188 @@ export const getChatMessages = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// create group
+export const createGroup = async (req, res) => {
+    try {
+        const { name, participants } = req.body;
+        const group = new Chat({
+            groupName: name,
+            participants: [...participants, req.user._id],
+            isGroup: true,
+            groupAdmin: req.user._id
+        });
+        await group.save();
+        res.status(201).json({ success: true, group });
+    } catch (error) {
+        console.error('Create group error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// add to group
+export const addToGroup = async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        const { userId } = req.body;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You are not the admin of this group' });
+        }
+        chat.participants.push(userId);
+        await chat.save();
+        res.json({ success: true, chat });
+    } catch (error) {
+        console.error('Add to group error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// remove from group
+export const removeFromGroup = async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        const { userId } = req.body;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You are not the admin of this group' });
+        }
+        chat.participants = chat.participants.filter(p => p.toString() !== userId);
+        await chat.save();
+        res.json({ success: true, chat });
+    } catch (error) {
+        console.error('Remove from group error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// edit message
+export const editMessage = async (req, res) => {
+    try {
+        const { chatId, messageId } = req.params;
+        const { content } = req.body;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        const message = chat.messages.id(messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        if (message.sender.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You can only edit your own messages' });
+        }
+        message.content = content;
+        message.edited = true;
+        message.editedAt = new Date();
+        await chat.save();
+        res.json({ success: true, message });
+    } catch (error) {
+        console.error('Edit message error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// delete message
+export const deleteMessage = async (req, res) => {
+    try {
+        const { chatId, messageId } = req.params;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        const message = chat.messages.id(messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        if (message.sender.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You can only delete your own messages' });
+        }
+        message.deleted = true;
+        await chat.save();
+        res.json({ success: true, message: 'Message deleted' });
+    } catch (error) {
+        console.error('Delete message error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// add reaction
+export const addReaction = async (req, res) => {
+    try {
+        const { chatId, messageId } = req.params;
+        const { reaction } = req.body;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        const message = chat.messages.id(messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        if (!message.reactions.get(reaction)) {
+            message.reactions.set(reaction, []);
+        }
+        message.reactions.get(reaction).push(req.user._id);
+        await chat.save();
+        res.json({ success: true, message });
+    } catch (error) {
+        console.error('Add reaction error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// remove reaction
+export const removeReaction = async (req, res) => {
+    try {
+        const { chatId, messageId } = req.params;
+        const { reaction } = req.body;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        const message = chat.messages.id(messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+        if (!message.reactions.get(reaction)) {
+            return res.status(404).json({ message: 'Reaction not found' });
+        }
+        message.reactions.set(reaction, message.reactions.get(reaction).filter(userId => userId.toString() !== req.user._id.toString()));
+        if (message.reactions.get(reaction).length === 0) {
+            message.reactions.delete(reaction);
+        }
+        await chat.save();
+        res.json({ success: true, message });
+    } catch (error) {
+        console.error('Remove reaction error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// mark as read
+export const markAsRead = async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        chat.messages.forEach(message => {
+            if (!message.readBy.some(r => r.user.toString() === req.user._id.toString())) {
+                message.readBy.push({ user: req.user._id, readAt: new Date() });
+            }
+        });
+        await chat.save();
+        res.json({ success: true, message: 'Messages marked as read' });
+    } catch (error) {
+        console.error('Mark as read error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

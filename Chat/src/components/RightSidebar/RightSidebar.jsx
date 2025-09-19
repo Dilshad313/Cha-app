@@ -1,10 +1,9 @@
-import React from 'react'
-import './RightSidebar.css'
-import assets from '../../assets/assets'
-import { useApp } from '../../context/AppContext'
+import React from 'react';
+import assets from '../../assets/assets';
+import { useApp } from '../../context/AppContext';
 
-function RightSidebar() {
-  const { logoutUser, user } = useApp();
+function RightSidebar({ closeSidebar }) {
+  const { logoutUser, user, onlineUsers } = useApp();
 
   const handleLogout = async () => {
     try {
@@ -12,30 +11,62 @@ function RightSidebar() {
     } catch (error) {
       console.error('Logout error:', error);
     }
-  }
+  };
+
+  const isCurrentUserOnline = user && onlineUsers.includes(user._id);
 
   return (
-    <div className='rs'>
-      <div className="rs-profile">
-        <img src={user?.avatar || assets.profile_img} alt="Profile" />
-        <h3>{user?.name || 'User'} <img className='dot' src={assets.green_dot} alt="" /></h3>
-        <p>{user?.bio || 'Hey, There I am using chat app'}</p>
+    <div className="bg-white h-full flex flex-col p-4">
+      <div className="flex justify-end md:hidden">
+        <button onClick={closeSidebar}>
+          <img src={assets.close_icon} alt="Close" className="w-6 h-6" />
+        </button>
       </div>
-      <hr />
-      <div className="rs-media">
-        <p>Media</p>
-        <div>
-          <img src={assets.pic1} alt="" />
-          <img src={assets.pic2} alt="" />
-          <img src={assets.pic3} alt="" />
-          <img src={assets.pic4} alt="" />
-          <img src={assets.pic1} alt="" />
-          <img src={assets.pic2} alt="" />
+      {/* Profile */}
+      <div className="text-center mt-8">
+        <img
+          src={user?.avatar || assets.profile_img}
+          alt="Profile"
+          className="w-28 h-28 rounded-full mx-auto"
+        />
+        <h3 className="text-lg font-semibold flex items-center justify-center gap-2 my-2">
+          {user?.name || 'User'}
+          <img
+            className="w-3 h-3"
+            src={isCurrentUserOnline ? assets.green_dot : assets.grey_dot}
+            alt="status"
+          />
+        </h3>
+        <p className="text-xs text-gray-500">
+          {user?.bio || 'Hey, There I am using chat app'}
+        </p>
+      </div>
+
+      {/* Divider */}
+      <hr className="my-4" />
+
+      {/* Media */}
+      <div className="px-5 text-sm">
+        <p className="font-semibold">Media</p>
+        <div className="max-h-48 overflow-y-auto grid grid-cols-3 gap-2 mt-2">
+          <img src={assets.pic1} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic2} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic3} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic4} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic1} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic2} alt="" className="w-full rounded cursor-pointer" />
         </div>
       </div>
-      <button onClick={handleLogout}>Logout</button>
+
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        className="w-full bg-red-500 text-white py-2.5 rounded-full cursor-pointer hover:bg-red-600 transition mt-auto"
+      >
+        Logout
+      </button>
     </div>
-  )
+  );
 }
 
-export default RightSidebar
+export default RightSidebar;
