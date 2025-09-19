@@ -1,6 +1,5 @@
 // Frontend: components/LeftSidebar/LeftSidebar.jsx
 import React, { useState, useEffect } from "react";
-import "./LeftSidebar.css";
 import assets from "../../assets/assets";
 import { useApp } from "../../context/AppContext";
 import { usersAPI, chatsAPI } from "../../config/api";
@@ -9,11 +8,11 @@ import { toast } from "react-toastify";
 
 /* -------------------- Reusable Components -------------------- */
 const UserAvatar = ({ src, isOnline }) => (
-  <div className="friend-avatar">
-    <img src={src || assets.profile_img} alt="avatar" />
+  <div className="relative">
+    <img src={src || assets.profile_img} alt="avatar" className="w-10 h-10 rounded-full" />
     {typeof isOnline === "boolean" && (
       <img
-        className="dot"
+        className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full"
         src={isOnline ? assets.green_dot : assets.grey_dot}
         alt="status"
       />
@@ -23,62 +22,62 @@ const UserAvatar = ({ src, isOnline }) => (
 
 const FriendItem = ({ friend, isOnline, isActive, onClick }) => (
   <div
-    className={`friends ${isActive ? "active" : ""}`}
+    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-gray-100 ${isActive ? "bg-gray-200" : ""}`}
     onClick={onClick}
   >
     <UserAvatar src={friend.avatar} isOnline={isOnline} />
     <div>
-      <p>{friend.name}</p>
-      <span>Click to chat</span>
+      <p className="font-semibold">{friend.name}</p>
+      <span className="text-sm text-gray-500">Click to chat</span>
     </div>
   </div>
 );
 
 const GroupItem = ({ group, isActive, onClick }) => (
   <div
-    className={`friends group ${isActive ? "active" : ""}`}
+    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-gray-100 ${isActive ? "bg-gray-200" : ""}`}
     onClick={onClick}
   >
-    <div className="friend-avatar group-avatar">
-      <img src={assets.group_icon || assets.profile_img} alt="group" />
+    <div className="relative">
+      <img src={assets.group_icon || assets.profile_img} alt="group" className="w-10 h-10 rounded-full" />
     </div>
     <div>
-      <p>{group.groupName}</p>
-      <span>Group Chat ({group.participants.length})</span>
+      <p className="font-semibold">{group.groupName}</p>
+      <span className="text-sm text-gray-500">Group Chat ({group.participants.length})</span>
     </div>
   </div>
 );
 
 const RequestItem = ({ request, onAccept, onReject }) => (
-  <div className="friends request">
+  <div className="flex items-center gap-4 p-2 rounded-md">
     <UserAvatar src={request.from.avatar} />
-    <div>
-      <p>{request.from.name}</p>
-      <span>Friend Request</span>
+    <div className="flex-1">
+      <p className="font-semibold">{request.from.name}</p>
+      <span className="text-sm text-gray-500">Friend Request</span>
     </div>
-    <div className="actions">
-      <button onClick={() => onAccept(request._id)}>Accept</button>
-      <button onClick={() => onReject(request._id)}>Reject</button>
+    <div className="flex gap-2">
+      <button onClick={() => onAccept(request._id)} className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm">Accept</button>
+      <button onClick={() => onReject(request._id)} className="bg-gray-300 px-3 py-1 rounded-md text-sm">Reject</button>
     </div>
   </div>
 );
 
 const SearchResultItem = ({ result, isOnline, onChat, onAdd }) => (
-  <div className="friends search-result">
+  <div className="flex items-center gap-4 p-2 rounded-md">
     <UserAvatar src={result.avatar} isOnline={isOnline} />
-    <div>
-      <p>{result.name}</p>
-      <span>{result.username}</span>
+    <div className="flex-1">
+      <p className="font-semibold">{result.name}</p>
+      <span className="text-sm text-gray-500">{result.username}</span>
     </div>
-    <div className="actions">
-      <button onClick={() => onChat(result._id)}>Chat</button>
-      <button onClick={() => onAdd(result._id)}>Add Friend</button>
+    <div className="flex gap-2">
+      <button onClick={() => onChat(result._id)} className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm">Chat</button>
+      <button onClick={() => onAdd(result._id)} className="bg-green-500 text-white px-3 py-1 rounded-md text-sm">Add</button>
     </div>
   </div>
 );
 
 /* -------------------- Main Sidebar Component -------------------- */
-function LeftSidebar() {
+function LeftSidebar({ closeSidebar }) {
   const {
     chats,
     setChats,
@@ -207,47 +206,51 @@ function LeftSidebar() {
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="ls">
+    <div className="bg-white h-full flex flex-col p-4">
       {/* Top Nav */}
-      <div className="ls-top">
-        <div className="ls-nav">
-          <img src={assets.logo} className="logo" alt="logo" />
-          <div className="menu">
-            <img src={assets.menu_icon} alt="menu" />
-            <div className="sub-menu">
-              <p>Edit profile</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <img src={assets.logo} className="w-24" alt="logo" />
+          <button onClick={closeSidebar} className="md:hidden">
+            <img src={assets.close_icon} alt="Close" className="w-6 h-6" />
+          </button>
+          <div className="relative">
+            <img src={assets.menu_icon} alt="menu" className="cursor-pointer" />
+            <div className="absolute hidden bg-white shadow-md rounded-md py-2 w-40 right-0">
+              <p className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Edit profile</p>
               <hr />
-              <p>Logout</p>
+              <p className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Logout</p>
             </div>
           </div>
         </div>
-        <div className="ls-search">
-          <img src={assets.search_icon} alt="search" />
+        <div className="relative">
+          <img src={assets.search_icon} alt="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
           <input
             type="text"
             placeholder="Search here..."
             value={searchQuery}
             onChange={handleSearchChange}
+            className="w-full bg-gray-100 border border-gray-200 rounded-full py-2 px-10 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="ls-tabs">
-        <button onClick={() => setActiveTab("friends")}>
+      <div className="flex justify-around my-4 border-b">
+        <button onClick={() => setActiveTab("friends")} className={`py-2 ${activeTab === 'friends' ? 'border-b-2 border-blue-500' : ''}`}>
           Friends ({friends.length})
         </button>
-        <button onClick={() => setActiveTab("groups")}>
+        <button onClick={() => setActiveTab("groups")} className={`py-2 ${activeTab === 'groups' ? 'border-b-2 border-blue-500' : ''}`}>
           Groups ({groups.length})
         </button>
-        <button onClick={() => setActiveTab("requests")}>
+        <button onClick={() => setActiveTab("requests")} className={`py-2 ${activeTab === 'requests' ? 'border-b-2 border-blue-500' : ''}`}>
           Requests ({friendRequests.length})
         </button>
       </div>
 
       {/* List */}
-      <div className="ls-list">
-        {isSearching && <p>Searching...</p>}
+      <div className="flex-1 overflow-y-auto">
+        {isSearching && <p className="text-center text-gray-500">Searching...</p>}
         {searchQuery && !isSearching && (
           searchResults.map((result) => (
             <SearchResultItem
@@ -316,7 +319,7 @@ function LeftSidebar() {
 
       {/* Create Group Button */}
       <button
-        className="create-group-btn"
+        className="bg-blue-500 text-white rounded-full py-2 px-4 self-center mt-4"
         onClick={() => setShowCreateGroup(true)}
       >
         Create Group
@@ -324,34 +327,38 @@ function LeftSidebar() {
 
       {/* Create Group Modal */}
       {showCreateGroup && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Create New Group</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Create New Group</h3>
             <input
               type="text"
               placeholder="Group Name"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
+              className="w-full border rounded-md p-2 mb-4"
             />
-            <p>Select Participants:</p>
+            <p className="mb-2">Select Participants:</p>
             <input
               type="text"
               placeholder="Search users to add"
               onChange={handleSearchChange}
+              className="w-full border rounded-md p-2 mb-4"
             />
-            {searchResults.map((user) => (
-              <div key={user._id} className="participant-select">
-                <input
-                  type="checkbox"
-                  checked={selectedParticipants.includes(user._id)}
-                  onChange={() => handleToggleParticipant(user._id)}
-                />
-                <span>{user.name}</span>
-              </div>
-            ))}
-            <div className="modal-actions">
-              <button onClick={handleCreateGroup}>Create</button>
-              <button onClick={() => setShowCreateGroup(false)}>Cancel</button>
+            <div className="max-h-40 overflow-y-auto mb-4">
+              {searchResults.map((user) => (
+                <div key={user._id} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md">
+                  <input
+                    type="checkbox"
+                    checked={selectedParticipants.includes(user._id)}
+                    onChange={() => handleToggleParticipant(user._id)}
+                  />
+                  <span>{user.name}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-4">
+              <button onClick={handleCreateGroup} className="bg-blue-500 text-white px-4 py-2 rounded-md">Create</button>
+              <button onClick={() => setShowCreateGroup(false)} className="bg-gray-300 px-4 py-2 rounded-md">Cancel</button>
             </div>
           </div>
         </div>

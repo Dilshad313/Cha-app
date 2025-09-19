@@ -8,6 +8,8 @@ import { chatsAPI } from '../../config/api';
 function Chat() {
   const { user, chats, setChats, currentChat, setCurrentChat } = useApp();
   const [loading, setLoading] = useState(true);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
   useEffect(() => {
     const loadChats = async () => {
@@ -41,10 +43,14 @@ function Chat() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#596aff] to-[#383699] grid place-items-center">
-      <div className="w-[95%] h-[75vh] max-w-[1000px] bg-[aliceblue] grid grid-cols-[1fr_2fr_1fr]">
-        <LeftSidebar />
-        <Chatbox />
-        <RightSidebar />
+      <div className="w-full h-full md:w-[95%] md:h-[75vh] md:max-w-[1000px] bg-[aliceblue] grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] relative">
+        <div className={`absolute top-0 left-0 h-full w-full z-20 md:static md:block ${isLeftSidebarOpen ? 'block' : 'hidden'}`}>
+          <LeftSidebar closeSidebar={() => setIsLeftSidebarOpen(false)} />
+        </div>
+        <Chatbox toggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} toggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)} />
+        <div className={`absolute top-0 right-0 h-full w-full z-20 md:static md:block ${isRightSidebarOpen ? 'block' : 'hidden'}`}>
+          <RightSidebar closeSidebar={() => setIsRightSidebarOpen(false)} />
+        </div>
       </div>
     </div>
   );

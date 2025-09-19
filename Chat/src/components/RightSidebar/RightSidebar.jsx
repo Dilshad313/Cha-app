@@ -2,7 +2,7 @@ import React from 'react';
 import assets from '../../assets/assets';
 import { useApp } from '../../context/AppContext';
 
-function RightSidebar() {
+function RightSidebar({ closeSidebar }) {
   const { logoutUser, user, onlineUsers } = useApp();
 
   const handleLogout = async () => {
@@ -16,15 +16,20 @@ function RightSidebar() {
   const isCurrentUserOnline = user && onlineUsers.includes(user._id);
 
   return (
-    <div className="text-white bg-[#001030] relative h-[75vh] overflow-y-scroll">
+    <div className="bg-white h-full flex flex-col p-4">
+      <div className="flex justify-end md:hidden">
+        <button onClick={closeSidebar}>
+          <img src={assets.close_icon} alt="Close" className="w-6 h-6" />
+        </button>
+      </div>
       {/* Profile */}
-      <div className="pt-16 text-center max-w-[70%] mx-auto">
+      <div className="text-center mt-8">
         <img
           src={user?.avatar || assets.profile_img}
           alt="Profile"
-          className="w-[110px] aspect-square rounded-full mx-auto"
+          className="w-28 h-28 rounded-full mx-auto"
         />
-        <h3 className="text-[18px] font-normal flex items-center justify-center gap-1 my-1">
+        <h3 className="text-lg font-semibold flex items-center justify-center gap-2 my-2">
           {user?.name || 'User'}
           <img
             className="w-3 h-3"
@@ -32,31 +37,31 @@ function RightSidebar() {
             alt="status"
           />
         </h3>
-        <p className="text-[10px] opacity-80 font-light">
+        <p className="text-xs text-gray-500">
           {user?.bio || 'Hey, There I am using chat app'}
         </p>
       </div>
 
       {/* Divider */}
-      <hr className="border-[#ffffff50] my-4" />
+      <hr className="my-4" />
 
       {/* Media */}
-      <div className="px-5 text-[13px]">
-        <p>Media</p>
-        <div className="max-h-[180px] overflow-y-scroll grid grid-cols-3 gap-1.5 mt-2">
-          <img src={assets.pic1} alt="" className="w-[60px] rounded cursor-pointer" />
-          <img src={assets.pic2} alt="" className="w-[60px] rounded cursor-pointer" />
-          <img src={assets.pic3} alt="" className="w-[60px] rounded cursor-pointer" />
-          <img src={assets.pic4} alt="" className="w-[60px] rounded cursor-pointer" />
-          <img src={assets.pic1} alt="" className="w-[60px] rounded cursor-pointer" />
-          <img src={assets.pic2} alt="" className="w-[60px] rounded cursor-pointer" />
+      <div className="px-5 text-sm">
+        <p className="font-semibold">Media</p>
+        <div className="max-h-48 overflow-y-auto grid grid-cols-3 gap-2 mt-2">
+          <img src={assets.pic1} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic2} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic3} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic4} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic1} alt="" className="w-full rounded cursor-pointer" />
+          <img src={assets.pic2} alt="" className="w-full rounded cursor-pointer" />
         </div>
       </div>
 
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-[#077eff] text-white border-none text-[12px] font-light px-[65px] py-2.5 rounded-full cursor-pointer hover:bg-[#005fcc] transition"
+        className="w-full bg-red-500 text-white py-2.5 rounded-full cursor-pointer hover:bg-red-600 transition mt-auto"
       >
         Logout
       </button>

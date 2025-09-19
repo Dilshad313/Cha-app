@@ -4,7 +4,7 @@ import assets from '../../assets/assets';
 import { useApp } from '../../context/AppContext';
 import { toast } from 'react-toastify';
 
-function Chatbox() {
+function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
   const [newMessage, setNewMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
@@ -160,6 +160,9 @@ function Chatbox() {
     <div className="h-[75vh] relative bg-[#f1f5ff] flex flex-col">
       {/* Chat Header */}
       <div className="flex items-center gap-3 border-b border-gray-300 px-4 py-2">
+        <button onClick={toggleLeftSidebar} className="md:hidden">
+          <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
+        </button>
         {currentChat.isGroup ? (
           <>
             <img src={assets.group_icon || assets.profile_img} alt="" className="w-10 h-10 rounded-full" />
@@ -181,7 +184,10 @@ function Chatbox() {
             </p>
           </>
         )}
-        <img src={assets.help_icon} className="w-6 h-6 cursor-pointer" alt="" />
+        <button onClick={toggleRightSidebar} className="md:hidden">
+          <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
+        </button>
+        <img src={assets.help_icon} className="w-6 h-6 cursor-pointer hidden md:block" alt="" />
       </div>
 
       {/* Chat Messages */}

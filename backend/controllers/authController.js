@@ -145,9 +145,9 @@ export const forgotPassword = async (req, res) => {
 
     if (!user) {
       // For security, don't reveal if email exists
-      return res.json({ 
-        success: true, 
-        message: 'If the email exists, a password reset link has been sent' 
+      return res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent'
       });
     }
 
@@ -165,9 +165,9 @@ export const forgotPassword = async (req, res) => {
     try {
       await sendPasswordResetEmail(email, resetToken);
       console.log('Email sent successfully to:', email);
-      res.json({ 
-        success: true, 
-        message: 'If the email exists, a password reset link has been sent' 
+      res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent'
       });
     } catch (emailError) {
       console.error('Email error:', emailError);

@@ -60,7 +60,36 @@ export const AppProvider = ({ children }) => {
 
     // Handle incoming messages
     newSocket.on('receive-message', (message) => {
-      setMessages(prev => [...prev, message]);
+      setChats(prevChats => {
+        const updatedChats = prevChats.map(chat => {
+          if (chat._id === message.chatId) {
+            return {
+              ...chat,
+              messages: [...chat.messages, message],
+              updatedAt: message.timestamp,
+            };
+          }
+          return chat;
+        });
+        return updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      });
+
+      if (currentChat?._id === message.chatId) {
+        setMessages(prev => [...prev, message]);
+      }
+    });
+
+    // Handle online users
+    newSocket.on('online-users', (users) => {
+      setOnlineUsers(users);
+    });
+
+    newSocket.on('user-online', (userId) => {
+      setOnlineUsers(prev => [...prev, userId]);
+    });
+
+    newSocket.on('user-offline', (userId) => {
+      setOnlineUsers(prev => prev.filter(id => id !== userId));
     });
 
     // Handle online users
@@ -138,9 +167,9 @@ export const AppProvider = ({ children }) => {
 
     // Handle messages read
     newSocket.on('messages-read', ({ messageIds, userId }) => {
-      setMessages(prev => prev.map(m => 
-        messageIds.includes(m._id) 
-          ? { ...m, readBy: [...(m.readBy || []), { user: userId }] } 
+      setMessages(prev => prev.map(m =>
+        messageIds.includes(m._id)
+          ? { ...m, readBy: [...(m.readBy || []), { user: userId }] }
           : m
       ));
     });
