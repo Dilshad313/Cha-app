@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import './Chat.css';
 import LeftSidebar from '../../components/LeftSidebar/LeftSidebar';
 import Chatbox from '../../components/Chatbox/Chatbox';
 import RightSidebar from '../../components/RightSidebar/RightSidebar';
@@ -15,7 +14,7 @@ function Chat() {
       try {
         const response = await chatsAPI.getUserChats();
         setChats(response.data.chats);
-        
+
         // Set the first chat as current if none is selected
         if (response.data.chats.length > 0 && !currentChat) {
           setCurrentChat(response.data.chats[0]);
@@ -33,12 +32,16 @@ function Chat() {
   }, [user, setChats, setCurrentChat, currentChat]);
 
   if (loading) {
-    return <div className="chat-loading">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#596aff] to-[#383699] text-white">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className='chat'>
-      <div className="chat-container">
+    <div className="min-h-screen bg-gradient-to-b from-[#596aff] to-[#383699] grid place-items-center">
+      <div className="w-[95%] h-[75vh] max-w-[1000px] bg-[aliceblue] grid grid-cols-[1fr_2fr_1fr]">
         <LeftSidebar />
         <Chatbox />
         <RightSidebar />
