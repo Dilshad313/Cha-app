@@ -1,0 +1,3 @@
+⚠️  Using development JWT secret - set JWT_SECRET in .env for production
+✅ Cloudinary configured successfully
+Server running on port 5000
