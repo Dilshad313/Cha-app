@@ -36,6 +36,10 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() && !selectedImage) return;
+    if (!currentChat) {
+      toast.error('Please select a chat first');
+      return;
+    }
 
     if (editingMessage) {
       editMessage(currentChat._id, editingMessage._id, newMessage);
@@ -56,6 +60,7 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
 
         setNewMessage("");
         setSelectedImage(null);
+        scrollToBottom();
       } catch (error) {
         console.error('Error sending message:', error);
         toast.error('Error sending message');

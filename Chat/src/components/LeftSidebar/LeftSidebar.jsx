@@ -98,6 +98,27 @@ function LeftSidebar({ closeSidebar }) {
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("friends"); // friends | groups | requests
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  
+  // Search users with debounce
+  const searchUsers = debounce(async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    try {
+      setIsSearching(true);
+      const response = await usersAPI.searchUsers(query);
+      // Filter out the current user from search results
+      setSearchResults(response.data.users.filter(u => u._id !== user._id));
+      setIsSearching(false);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      toast.error("Failed to search users");
+      setIsSearching(false);
+    }
+  }, 500);
   const [groupName, setGroupName] = useState("");
   const [selectedParticipants, setSelectedParticipants] = useState([]);
 
@@ -107,28 +128,17 @@ function LeftSidebar({ closeSidebar }) {
   }, []);
 
   /* -------------------- Search -------------------- */
-  const handleSearch = async (query) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const response = await usersAPI.searchUsers(query);
-      setSearchResults(response.data.users);
-    } catch (error) {
-      toast.error("Error searching users");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const debouncedSearch = debounce(handleSearch, 300);
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    debouncedSearch(query);
+    searchUsers(query);
+    
+    // If search query is not empty, switch to search tab
+    if (query.trim()) {
+      setActiveTab('search');
+    } else if (activeTab === 'search') {
+      setActiveTab('friends');
+    }
   };
 
   /* -------------------- Chat & Friends -------------------- */
@@ -246,47 +256,54 @@ function LeftSidebar({ closeSidebar }) {
         <button onClick={() => setActiveTab("requests")} className={`py-2 ${activeTab === 'requests' ? 'border-b-2 border-blue-500' : ''}`}>
           Requests ({friendRequests.length})
         </button>
+        {searchQuery.trim() && (
+          <button onClick={() => setActiveTab("search")} className={`py-2 ${activeTab === 'search' ? 'border-b-2 border-blue-500' : ''}`}>
+            Search
+          </button>
+        )}
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
-        {isSearching && <p className="text-center text-gray-500">Searching...</p>}
-        {searchQuery && !isSearching && (
-          searchResults.map((result) => (
-            <SearchResultItem
-              key={result._id}
-              result={result}
-              isOnline={onlineUsers.includes(result._id)}
-              onChat={handleCreateChat}
-              onAdd={handleSendRequest}
-            />
-          ))
-        )}
-        {!searchQuery && (
+      <div className="flex-1 overflow-y-auto p-4">
+        {isSearching ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
           <>
+            {/* Search Results */}
+            {activeTab === "search" && (
+              <>
+                {searchResults.length > 0 ? (
+                  searchResults.map((result) => (
+                    <SearchResultItem
+                      key={result._id}
+                      result={result}
+                      isOnline={onlineUsers.includes(result._id)}
+                      onChat={() => handleCreateChat(result._id)}
+                      onAdd={() => handleSendRequest(result._id)}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    {searchQuery.trim() ? "No users found" : "Type to search users"}
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* Friend Requests */}
             {activeTab === "requests" &&
-              friendRequests.map((req) => (
+              friendRequests.map((request) => (
                 <RequestItem
-                  key={req._id}
-                  request={req}
+                  key={request._id}
+                  request={request}
                   onAccept={handleAcceptRequest}
                   onReject={handleRejectRequest}
                 />
               ))}
 
-            {activeTab === "friends" &&
-              friends.map((friend) => (
-                <FriendItem
-                  key={friend._id}
-                  friend={friend}
-                  isOnline={onlineUsers.includes(friend._id)}
-                  isActive={currentChat?.participants.some(
-                    (p) => p._id === friend._id
-                  )}
-                  onClick={() => handleCreateChat(friend._id)}
-                />
-              ))}
-
+            {/* Group Chats */}
             {activeTab === "groups" &&
               groups.map((group) => (
                 <GroupItem
