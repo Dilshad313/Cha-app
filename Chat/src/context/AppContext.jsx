@@ -173,6 +173,18 @@ export const AppProvider = ({ children }) => {
           : m
       ));
     });
+
+    // Handle group updates
+    newSocket.on('group-updated', (updatedChat) => {
+        setChats(prev => prev.map(c => c._id === updatedChat.chatId ? { ...c, ...updatedChat } : c));
+        if (currentChat?._id === updatedChat.chatId) {
+            setCurrentChat(prev => ({ ...prev, ...updatedChat }));
+        }
+    });
+
+    newSocket.on('new-group-chat', (newGroup) => {
+        setChats(prev => [newGroup, ...prev]);
+    });
     
     setSocket(newSocket);
     return newSocket;

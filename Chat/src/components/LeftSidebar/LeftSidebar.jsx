@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import assets from "../../assets/assets";
 import { useApp } from "../../context/AppContext";
+import GroupChatModal from "../Chatbox/GroupChatModal";
 import { usersAPI, chatsAPI } from "../../config/api";
 import { debounce } from "lodash";
 import { toast } from "react-toastify";
@@ -97,7 +98,7 @@ function LeftSidebar({ closeSidebar }) {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("friends"); // friends | groups | requests
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   
   // Search users with debounce
   const searchUsers = debounce(async (query) => {
@@ -119,8 +120,6 @@ function LeftSidebar({ closeSidebar }) {
       setIsSearching(false);
     }
   }, 500);
-  const [groupName, setGroupName] = useState("");
-  const [selectedParticipants, setSelectedParticipants] = useState([]);
 
   useEffect(() => {
     loadFriends();
@@ -186,31 +185,6 @@ function LeftSidebar({ closeSidebar }) {
       toast.success("Request rejected");
     } catch {
       toast.error("Error rejecting request");
-    }
-  };
-
-  /* -------------------- Group -------------------- */
-  const handleToggleParticipant = (userId) => {
-    setSelectedParticipants((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedParticipants.length === 0) {
-      toast.error("Group name and participants required");
-      return;
-    }
-    try {
-      await createGroup(groupName, selectedParticipants);
-      toast.success("Group created successfully");
-      setShowCreateGroup(false);
-      setGroupName("");
-      setSelectedParticipants([]);
-    } catch {
-      toast.error("Error creating group");
     }
   };
 
@@ -337,49 +311,15 @@ function LeftSidebar({ closeSidebar }) {
       {/* Create Group Button */}
       <button
         className="bg-blue-500 text-white rounded-full py-2 px-4 self-center mt-4"
-        onClick={() => setShowCreateGroup(true)}
+        onClick={() => setIsGroupModalOpen(true)}
       >
         Create Group
       </button>
 
-      {/* Create Group Modal */}
-      {showCreateGroup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">Create New Group</h3>
-            <input
-              type="text"
-              placeholder="Group Name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              className="w-full border rounded-md p-2 mb-4"
-            />
-            <p className="mb-2">Select Participants:</p>
-            <input
-              type="text"
-              placeholder="Search users to add"
-              onChange={handleSearchChange}
-              className="w-full border rounded-md p-2 mb-4"
-            />
-            <div className="max-h-40 overflow-y-auto mb-4">
-              {searchResults.map((user) => (
-                <div key={user._id} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md">
-                  <input
-                    type="checkbox"
-                    checked={selectedParticipants.includes(user._id)}
-                    onChange={() => handleToggleParticipant(user._id)}
-                  />
-                  <span>{user.name}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-4">
-              <button onClick={handleCreateGroup} className="bg-blue-500 text-white px-4 py-2 rounded-md">Create</button>
-              <button onClick={() => setShowCreateGroup(false)} className="bg-gray-300 px-4 py-2 rounded-md">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GroupChatModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+      />
     </div>
   );
 }

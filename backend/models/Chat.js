@@ -49,23 +49,26 @@ const messageSchema = new mongoose.Schema({
 });
 
 const chatSchema = new mongoose.Schema({
+  chatName: {
+    type: String,
+    trim: true
+  },
+  isGroupChat: {
+    type: Boolean,
+    default: false
+  },
   participants: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   }],
   messages: [messageSchema],
-  isGroup: {
-    type: Boolean,
-    default: false
-  },
-  groupName: {
-    type: String,
-    default: ""
-  },
   groupAdmin: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  groupIcon: {
+    type: String
   }
 }, {
   timestamps: true

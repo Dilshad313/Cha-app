@@ -123,64 +123,168 @@ export const getChatMessages = async (req, res) => {
   }
 };
 
-// create group
-export const createGroup = async (req, res) => {
+// Create group chat
+export const createGroupChat = async (req, res) => {
+  try {
+    const { chatName, participants } = req.body;
+
+    if (!chatName || !participants || !Array.isArray(participants) || participants.length < 1) {
+      return res.status(400).json({ message: 'Group name and at least one participant are required.' });
+    }
+
+    const group = new Chat({
+      chatName,
+      participants: [...participants, req.user._id],
+      isGroupChat: true,
+      groupAdmin: req.user._id,
+    });
+
+    await group.save();
+    const fullGroupChat = await Chat.findById(group._id)
+        .populate('participants', '-password')
+        .populate('groupAdmin', '-password');
+
+    fullGroupChat.participants.forEach(p => {
+        if(p._id.toString() !== req.user._id.toString()) {
+            req.io.to(p._id.toString()).emit('new-group-chat', fullGroupChat);
+        }
+    });
+
+    res.status(201).json({ success: true, group: fullGroupChat });
+  } catch (error) {
+    console.error('Create group error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Rename group
+export const renameGroup = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { chatName } = req.body;
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not the admin of this group' });
+    }
+
+    chat.chatName = chatName;
+    await chat.save();
+
+    req.io.to(chatId).emit('group-updated', { chatId, chatName });
+
+    res.json({ success: true, chat });
+  } catch (error) {
+    console.error('Rename group error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update group icon
+export const updateGroupIcon = async (req, res) => {
     try {
-        const { name, participants } = req.body;
-        const group = new Chat({
-            groupName: name,
-            participants: [...participants, req.user._id],
-            isGroup: true,
-            groupAdmin: req.user._id
-        });
-        await group.save();
-        res.status(201).json({ success: true, group });
+        const { chatId } = req.params;
+        const chat = await Chat.findById(chatId);
+
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+
+        if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'You are not authorized to change the group icon' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const result = await uploadToCloudinary(req.file.buffer, 'chat-app/group-icons');
+        chat.groupIcon = result.secure_url;
+
+        await chat.save();
+
+        req.io.to(chatId).emit('group-updated', { chatId, groupIcon: chat.groupIcon });
+
+        res.json({ success: true, chat });
+
     } catch (error) {
-        console.error('Create group error:', error);
+        console.error('Update group icon error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
 
-// add to group
+// Add user to group
 export const addToGroup = async (req, res) => {
-    try {
-        const { chatId } = req.params;
-        const { userId } = req.body;
-        const chat = await Chat.findById(chatId);
-        if (!chat) {
-            return res.status(404).json({ message: 'Chat not found' });
-        }
-        if (chat.groupAdmin.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'You are not the admin of this group' });
-        }
-        chat.participants.push(userId);
-        await chat.save();
-        res.json({ success: true, chat });
-    } catch (error) {
-        console.error('Add to group error:', error);
-        res.status(500).json({ message: 'Server error' });
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.body;
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
     }
+
+    if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not the admin of this group' });
+    }
+
+    if(chat.participants.includes(userId)){
+        return res.status(400).json({ message: 'User already in group' });
+    }
+
+    chat.participants.push(userId);
+    await chat.save();
+
+    const fullChat = await Chat.findById(chatId)
+        .populate('participants', '-password')
+        .populate('groupAdmin', '-password');
+
+    req.io.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
+
+    res.json({ success: true, chat: fullChat });
+  } catch (error) {
+    console.error('Add to group error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
-// remove from group
+// Remove user from group
 export const removeFromGroup = async (req, res) => {
-    try {
-        const { chatId } = req.params;
-        const { userId } = req.body;
-        const chat = await Chat.findById(chatId);
-        if (!chat) {
-            return res.status(404).json({ message: 'Chat not found' });
-        }
-        if (chat.groupAdmin.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'You are not the admin of this group' });
-        }
-        chat.participants = chat.participants.filter(p => p.toString() !== userId);
-        await chat.save();
-        res.json({ success: true, chat });
-    } catch (error) {
-        console.error('Remove from group error:', error);
-        res.status(500).json({ message: 'Server error' });
+  try {
+    const { chatId } = req.params;
+    const { userId } = req.body;
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
     }
+
+    if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not the admin of this group' });
+    }
+
+    chat.participants = chat.participants.filter(p => p.toString() !== userId);
+    await chat.save();
+
+    const fullChat = await Chat.findById(chatId)
+        .populate('participants', '-password')
+        .populate('groupAdmin', '-password');
+
+    req.io.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
+
+
+    res.json({ success: true, chat: fullChat });
+  } catch (error) {
+    console.error('Remove from group error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 // edit message
