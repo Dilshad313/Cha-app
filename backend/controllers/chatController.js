@@ -7,6 +7,7 @@ export const getUserChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.user._id })
       .populate('participants', 'username name avatar isOnline lastSeen')
+      .populate('messages.sender', 'username name avatar')
       .sort({ updatedAt: -1 });
 
     res.json({ success: true, chats });
