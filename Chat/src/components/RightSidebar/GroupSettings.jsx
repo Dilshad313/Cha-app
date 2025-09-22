@@ -82,11 +82,11 @@ const GroupSettings = () => {
             const { data } = await chatsAPI.removeFromGroup(currentChat._id, userToRemove._id);
             setCurrentChat(data.chat);
             toast.success(`${userToRemove.name} removed from the group`);
-        } catch (error) a=> {
+        } catch (error) {
             toast.error('Failed to remove user');
         }
     };
-
+    
     if (!currentChat || !currentChat.isGroupChat) {
         return null; // Or some placeholder
     }
