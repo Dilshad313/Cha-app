@@ -149,9 +149,9 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
 
   if (!currentChat) {
     return (
-      <div className="h-[75vh] relative bg-[#f1f5ff]">
+      <div className="h-[75vh] relative bg-gray-800 text-white">
         <div className="flex h-full items-center justify-center">
-          <p className="text-gray-600">Select a chat to start messaging</p>
+          <p className="text-gray-400">Select a chat to start messaging</p>
         </div>
       </div>
     );
@@ -162,16 +162,16 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
   const typingUsersList = getTypingUsers();
 
   return (
-    <div className="h-[75vh] relative bg-[#f1f5ff] flex flex-col">
+    <div className="h-[75vh] relative bg-gray-800 flex flex-col text-white">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 border-b border-gray-300 px-4 py-2">
-        <button onClick={toggleLeftSidebar} className="md:hidden">
+      <div className="flex items-center gap-3 border-b border-gray-700 px-4 py-2 bg-gray-900">
+        <button onClick={toggleLeftSidebar} className="md:hidden text-white">
           <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
         </button>
         {currentChat.isGroup ? (
           <>
             <img src={assets.group_icon || assets.profile_img} alt="" className="w-10 h-10 rounded-full" />
-            <p className="flex-1 font-medium text-lg text-gray-800 flex items-center gap-2">
+            <p className="flex-1 font-medium text-lg flex items-center gap-2">
               {currentChat.groupName}
               <img className="w-2.5 h-2.5" src={assets.green_dot} alt="" />
             </p>
@@ -179,7 +179,7 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
         ) : (
           <>
             <img src={otherParticipant?.avatar || assets.profile_img} alt="" className="w-10 h-10 rounded-full" />
-            <p className="flex-1 font-medium text-lg text-gray-800 flex items-center gap-2">
+            <p className="flex-1 font-medium text-lg flex items-center gap-2">
               {otherParticipant?.name || 'Unknown User'}
               <img
                 className="w-2.5 h-2.5"
@@ -189,25 +189,25 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
             </p>
           </>
         )}
-        <button onClick={toggleRightSidebar} className="md:hidden">
+        <button onClick={toggleRightSidebar} className="md:hidden text-white">
           <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
         </button>
         <img src={assets.help_icon} className="w-6 h-6 cursor-pointer hidden md:block" alt="" />
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-scroll flex flex-col-reverse pb-16 px-2">
+      <div className="flex-1 overflow-y-scroll flex flex-col-reverse pb-16 px-2 bg-gray-800">
         {currentChat.messages.map((message, index) => {
           if (message.deleted) {
             return (
-              <div key={index} className={`flex gap-2 px-4 ${message.sender._id === user._id ? 'justify-end' : 'flex-row-reverse justify-start'}`}>
-                <p className="bg-gray-300 text-gray-600 text-sm px-3 py-1 rounded-md">[Message deleted]</p>
+              <div key={index} className={`flex gap-2 px-4 ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
+                <p className="bg-gray-700 text-gray-400 text-sm px-3 py-1 rounded-md">[Message deleted]</p>
               </div>
             );
           }
 
           return (
-            <div key={index} className={`flex gap-2 px-4 ${message.sender._id === user._id ? 'justify-end' : 'flex-row-reverse justify-start'}`}>
+            <div key={index} className={`flex gap-2 px-4 my-2 ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
               {editingMessage?._id === message._id ? (
                 <div className="flex gap-2">
                   <input
@@ -215,19 +215,19 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                     value={newMessage}
                     onChange={handleInputChange}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                    className="border border-gray-600 rounded px-2 py-1 text-sm bg-gray-700 text-white"
                   />
-                  <button onClick={handleSendMessage} className="px-2 py-1 bg-blue-500 text-white rounded">Save</button>
-                  <button onClick={handleCancelEdit} className="px-2 py-1 bg-gray-400 text-white rounded">Cancel</button>
+                  <button onClick={handleSendMessage} className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700">Save</button>
+                  <button onClick={handleCancelEdit} className="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700">Cancel</button>
                 </div>
               ) : message.image ? (
-                <img className="max-w-[230px] mb-7 rounded-lg" src={message.image} alt="Message attachment" />
+                <img className="max-w-[230px] mb-2 rounded-lg" src={message.image} alt="Message attachment" />
               ) : (
-                <p className={`text-white text-xs font-light px-3 py-2 mb-7 max-w-[200px] rounded-lg ${message.sender._id === user._id ? 'bg-blue-500 rounded-br-none' : 'bg-blue-500 rounded-bl-none'}`}>
+                <p className={`text-white text-sm font-normal px-3 py-2 max-w-[250px] rounded-lg ${message.sender._id === user._id ? 'bg-purple-600 rounded-br-none' : 'bg-gray-700 rounded-bl-none'}`}>
                   {message.content}
                 </p>
               )}
-              <div className="text-[10px] text-center">
+              <div className="text-[10px] text-center text-gray-400">
                 <div className="flex gap-1">
                   {message.reactions && Object.entries(message.reactions).map(([emoji, users]) => (
                     <span key={emoji} className="cursor-pointer" onClick={() => handleRemoveReaction(emoji)}>
@@ -238,11 +238,11 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                 <div className="flex gap-1">
                   {message.sender._id === user._id && !editingMessage && (
                     <>
-                      <button onClick={() => handleEdit(message)} className="text-xs text-blue-600">Edit</button>
-                      <button onClick={() => handleDelete(message._id)} className="text-xs text-red-600">Delete</button>
+                      <button onClick={() => handleEdit(message)} className="text-xs text-blue-400 hover:underline">Edit</button>
+                      <button onClick={() => handleDelete(message._id)} className="text-xs text-red-400 hover:underline">Delete</button>
                     </>
                   )}
-                  <button onClick={() => handleToggleReaction(message._id)} className="text-xs text-gray-600">React</button>
+                  <button onClick={() => handleToggleReaction(message._id)} className="text-xs text-gray-400 hover:underline">React</button>
                 </div>
                 {showReactions === message._id && (
                   <div className="flex gap-1 mt-1">
@@ -255,14 +255,14 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                   <img src={message.sender.avatar || assets.profile_img} alt="" className="w-6 h-6 rounded-full" />
                   <p>{formatTime(message.timestamp)}</p>
                   {message.edited && <span>Edited</span>}
-                  {isMessageRead(message) && <span className="text-green-500">Seen</span>}
+                  {isMessageRead(message) && <span className="text-green-400">Seen</span>}
                 </div>
               </div>
             </div>
           );
         })}
         {typingUsersList.length > 0 && (
-          <div className="px-4 text-xs italic text-gray-500">
+          <div className="px-4 text-xs italic text-gray-400">
             {typingUsersList.map(u => u.name).join(', ')} {typingUsersList.length > 1 ? 'are' : 'is'} typing...
           </div>
         )}
@@ -270,14 +270,14 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
       </div>
 
       {/* Chat Input */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-white absolute bottom-0 left-0 right-0">
+      <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 absolute bottom-0 left-0 right-0">
         <input
           type="text"
           placeholder={editingMessage ? 'Edit message...' : 'Send a Message'}
           value={newMessage}
           onChange={handleInputChange}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          className="flex-1 border-none outline-none text-sm"
+          className="flex-1 border-none outline-none text-sm bg-gray-700 text-white px-3 py-2 rounded-full"
         />
         <input
           type="file"
@@ -287,14 +287,15 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
           onChange={handleImageSelect}
         />
         <label htmlFor="image" className="cursor-pointer">
-          <img src={assets.gallery_icon} alt="Attach" className="w-5" />
+          <img src={assets.gallery_icon} alt="Attach" className="w-6 h-6" />
         </label>
-        <img
-          src={assets.send_button}
-          alt="Send"
-          onClick={handleSendMessage}
-          className="w-7 cursor-pointer"
-        />
+        <button onClick={handleSendMessage} className="p-2 bg-purple-600 rounded-full hover:bg-purple-700">
+          <img
+            src={assets.send_button}
+            alt="Send"
+            className="w-6 h-6"
+          />
+        </button>
       </div>
     </div>
   );
