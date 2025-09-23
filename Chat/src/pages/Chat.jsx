@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import LeftSidebar from '../../components/LeftSidebar/LeftSidebar';
-import Chatbox from '../../components/Chatbox/Chatbox';
-import RightSidebar from '../../components/RightSidebar/RightSidebar';
-import { useApp } from '../../context/AppContext';
-import { chatsAPI } from '../../config/api';
+import LeftSidebar from '../components/LeftSidebar';
+import Chatbox from '../components/Chatbox';
+import RightSidebar from '../components/RightSidebar';
+import { useApp } from '../context/AppContext';
+import { chatsAPI } from '../config/api';
 
 function Chat() {
   const { user, chats, setChats, currentChat, setCurrentChat } = useApp();

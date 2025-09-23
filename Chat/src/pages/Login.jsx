@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import assets from "../../assets/assets";
-import { useApp } from "../../context/AppContext";
+import assets from "../assets/assets";
+import { useApp } from "../context/AppContext";
 import { toast } from "react-toastify";
 
 function Login() {

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
-import { chatsAPI, usersAPI } from '../../config/api';
-import assets from '../../assets/assets';
+import { chatsAPI, usersAPI } from '../config/api';
+import assets from '../assets/assets';
 
 const UserAvatar = ({ src }) => (
     <img src={src || assets.profile_img} alt="avatar" className="w-10 h-10 rounded-full" />

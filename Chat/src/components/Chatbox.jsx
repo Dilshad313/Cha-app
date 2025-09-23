@@ -1,7 +1,7 @@
 // Frontend: components/Chatbox/Chatbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import assets from '../../assets/assets';
-import { useApp } from '../../context/AppContext';
+import assets from '../assets/assets';
+import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
 
 function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {

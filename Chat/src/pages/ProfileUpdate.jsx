@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import assets from "../../assets/assets";
-import { useApp } from "../../context/AppContext";
-import { usersAPI } from "../../config/api";
+import assets from "../assets/assets";
+import { useApp } from "../context/AppContext";
+import { usersAPI } from "../config/api";
 import { toast } from "react-toastify";
 import Cropper from "react-easy-crop";
 

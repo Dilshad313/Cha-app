@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { authAPI } from "../../config/api";
+import { authAPI } from "../config/api";
 import { toast } from "react-toastify";
 
 const PasswordStrengthIndicator = ({ password }) => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authAPI } from '../../config/api';
+import { authAPI } from '../config/api';
 import { toast } from 'react-toastify';
 
 function ForgotPassword() {

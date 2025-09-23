@@ -3,11 +3,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useApp } from './context/AppContext';
-import Login from './pages/Login/Login';
-import Chat from './pages/Chat/Chat';
-import ProfileUpdate from './pages/ProfileUpdate/ProfileUpdate';
-import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
-import ResetPassword from './pages/ResetPassword/ResetPassword';
+import Login from './pages/Login';
+import Chat from './pages/Chat';
+import ProfileUpdate from './pages/ProfileUpdate';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   const { user } = useApp();

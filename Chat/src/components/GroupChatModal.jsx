@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { usersAPI } from '../../config/api';
-import { useApp } from '../../context/AppContext';
+import { usersAPI } from '../config/api';
+import { useApp } from '../context/AppContext';
 
 const GroupChatModal = ({ isOpen, onClose }) => {
   const [groupName, setGroupName] = useState('');

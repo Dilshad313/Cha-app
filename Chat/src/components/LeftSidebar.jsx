@@ -1,9 +1,9 @@
 // Frontend: components/LeftSidebar/LeftSidebar.jsx
 import React, { useState, useEffect } from "react";
-import assets from "../../assets/assets";
-import { useApp } from "../../context/AppContext";
-import GroupChatModal from "../Chatbox/GroupChatModal";
-import { usersAPI, chatsAPI } from "../../config/api";
+import assets from "../assets/assets";
+import { useApp } from "../context/AppContext";
+import GroupChatModal from "./GroupChatModal";
+import { usersAPI, chatsAPI } from "../config/api";
 import { debounce } from "lodash";
 import { toast } from "react-toastify";
 
