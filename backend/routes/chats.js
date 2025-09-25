@@ -55,5 +55,20 @@ export const getChatMedia = async (req, res) => {
 
 router.get('/:chatId/media', authMiddleware, getChatMedia);
 
+// Upload image endpoint
+router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image provided' });
+    }
+    
+    const result = await uploadToCloudinary(req.file.buffer, 'chat-app/images');
+    res.json({ success: true, imageUrl: result.secure_url });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ message: 'Error uploading image' });
+  }
+});
+
 
 export default router;

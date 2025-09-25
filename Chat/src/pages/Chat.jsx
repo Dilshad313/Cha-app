@@ -1,55 +1,66 @@
+// pages/Chat.js
 import React, { useEffect, useState } from 'react';
 import LeftSidebar from '../components/LeftSidebar';
 import Chatbox from '../components/Chatbox';
 import RightSidebar from '../components/RightSidebar';
 import { useApp } from '../context/AppContext';
-import { chatsAPI } from '../config/api';
 
 function Chat() {
-  const { user, chats, setChats, currentChat, setCurrentChat } = useApp();
-  const [loading, setLoading] = useState(true);
+  const { user, chats, setChats, currentChat, setCurrentChat, loading, apiConnected } = useApp();
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  const [chatsLoading, setChatsLoading] = useState(true);
 
   useEffect(() => {
-    const loadChats = async () => {
-      try {
-        const response = await chatsAPI.getUserChats();
-        setChats(response.data.chats);
+    if (!apiConnected) {
+      setChatsLoading(false);
+      return;
+    }
 
-        // Set the first chat as current if none is selected
-        if (response.data.chats.length > 0 && !currentChat) {
-          const firstChat = response.data.chats[0];
-          setCurrentChat(firstChat);
-          
-          // Load messages for the first chat
-          if (firstChat._id) {
-            try {
-              const messagesResponse = await chatsAPI.getChatMessages(firstChat._id);
-              if (messagesResponse.data && messagesResponse.data.messages) {
-                firstChat.messages = messagesResponse.data.messages;
-              }
-            } catch (err) {
-              console.error('Error loading messages:', err);
-            }
-          }
+    const loadInitialData = async () => {
+      if (user && chats.length === 0) {
+        try {
+          // Chat loading will be handled by the context
+          setChatsLoading(false);
+        } catch (error) {
+          console.error('Error loading initial data:', error);
+          setChatsLoading(false);
         }
-      } catch (error) {
-        console.error('Error loading chats:', error);
-      } finally {
-        setLoading(false);
+      } else {
+        setChatsLoading(false);
       }
     };
 
-    if (user) {
-      loadChats();
-    }
-  }, [user, setChats, setCurrentChat, currentChat]);
+    loadInitialData();
+  }, [user, chats.length, apiConnected, setChats, setCurrentChat]);
 
-  if (loading) {
+  if (loading || chatsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#596aff] to-[#383699] text-white">
-        Loading...
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading chat application...</p>
+          {!apiConnected && (
+            <p className="text-yellow-300 mt-2">Attempting to reconnect to server...</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!apiConnected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#596aff] to-[#383699] text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Connection Issue</h2>
+          <p className="mb-4">Unable to connect to the chat server.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium"
+          >
+            Retry Connection
+          </button>
+        </div>
       </div>
     );
   }
@@ -60,7 +71,10 @@ function Chat() {
         <div className={`absolute top-0 left-0 h-full w-full z-20 md:static md:block ${isLeftSidebarOpen ? 'block' : 'hidden'}`}>
           <LeftSidebar closeSidebar={() => setIsLeftSidebarOpen(false)} />
         </div>
-        <Chatbox toggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} toggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)} />
+        <Chatbox 
+          toggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} 
+          toggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)} 
+        />
         <div className={`absolute top-0 right-0 h-full w-full z-20 md:static md:block ${isRightSidebarOpen ? 'block' : 'hidden'}`}>
           <RightSidebar closeSidebar={() => setIsRightSidebarOpen(false)} />
         </div>

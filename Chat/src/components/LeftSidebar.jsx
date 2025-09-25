@@ -1,20 +1,25 @@
 // Frontend: components/LeftSidebar/LeftSidebar.jsx
 import React, { useState, useEffect } from "react";
-import './LeftSidebar.css';
-import assets from "../assets/assets";
 import { useApp } from "../context/AppContext";
 import GroupChatModal from "./GroupChatModal";
 import { usersAPI, chatsAPI } from "../config/api";
 import { debounce } from "lodash";
 import { toast } from "react-toastify";
 
+// Add missing assets import
+import assets from "../assets/assets";
+
 /* -------------------- Reusable Components -------------------- */
 const UserAvatar = ({ src, isOnline }) => (
-  <div className="user-avatar-container">
-    <img src={src || assets.profile_img} alt="avatar" className="user-avatar" />
+  <div className="relative">
+    <img 
+      src={src || assets.profile_img} 
+      alt="avatar" 
+      className="w-10 h-10 rounded-full" 
+    />
     {typeof isOnline === "boolean" && (
       <img
-        className="status-indicator"
+        className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full"
         src={isOnline ? assets.green_dot : assets.grey_dot}
         alt="status"
       />
@@ -24,56 +29,84 @@ const UserAvatar = ({ src, isOnline }) => (
 
 const FriendItem = ({ friend, isOnline, isActive, onClick }) => (
   <div
-    className={`friend-item ${isActive ? "active" : ""}`}
+    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer ${
+      isActive ? "bg-gray-200" : "hover:bg-gray-100"
+    }`}
     onClick={onClick}
   >
     <UserAvatar src={friend.avatar} isOnline={isOnline} />
     <div>
-      <p className="friend-name">{friend.name}</p>
-      <span className="friend-status">Click to chat</span>
+      <p className="font-semibold">{friend.name}</p>
+      <span className="text-sm text-gray-500">Click to chat</span>
     </div>
   </div>
 );
 
 const GroupItem = ({ group, isActive, onClick }) => (
   <div
-    className={`group-item ${isActive ? "active" : ""}`}
+    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer ${
+      isActive ? "bg-gray-200" : "hover:bg-gray-100"
+    }`}
     onClick={onClick}
   >
-    <div className="group-icon-container">
-      <img src={assets.group_icon || assets.profile_img} alt="group" className="group-icon" />
+    <div className="relative">
+      <img 
+        src={assets.group_icon || assets.profile_img} 
+        alt="group" 
+        className="w-10 h-10 rounded-full" 
+      />
     </div>
     <div>
-      <p className="group-name">{group.groupName}</p>
-      <span className="group-members">Group Chat ({group.participants.length})</span>
+      <p className="font-semibold">{group.groupName}</p>
+      <span className="text-sm text-gray-500">Group Chat ({group.participants.length})</span>
     </div>
   </div>
 );
 
 const RequestItem = ({ request, onAccept, onReject }) => (
-  <div className="request-item">
+  <div className="flex items-center gap-4 p-2 rounded-md">
     <UserAvatar src={request.from.avatar} />
-    <div className="request-info">
-      <p className="request-name">{request.from.name}</p>
-      <span className="request-label">Friend Request</span>
+    <div className="flex-1">
+      <p className="font-semibold">{request.from.name}</p>
+      <span className="text-sm text-gray-500">Friend Request</span>
     </div>
-    <div className="request-actions">
-      <button onClick={() => onAccept(request._id)} className="accept-button">Accept</button>
-      <button onClick={() => onReject(request._id)} className="reject-button">Reject</button>
+    <div className="flex gap-2">
+      <button 
+        onClick={() => onAccept(request._id)} 
+        className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+      >
+        Accept
+      </button>
+      <button 
+        onClick={() => onReject(request._id)} 
+        className="px-3 py-1 text-sm bg-gray-300 rounded-md hover:bg-gray-400 transition-colors"
+      >
+        Reject
+      </button>
     </div>
   </div>
 );
 
 const SearchResultItem = ({ result, isOnline, onChat, onAdd }) => (
-  <div className="search-result-item">
+  <div className="flex items-center gap-4 p-2 rounded-md">
     <UserAvatar src={result.avatar} isOnline={isOnline} />
-    <div className="search-result-info">
-      <p className="search-result-name">{result.name}</p>
-      <span className="search-result-username">{result.username}</span>
+    <div className="flex-1">
+      <p className="font-semibold">{result.name}</p>
+      <span className="text-sm text-gray-500">{result.username}</span>
     </div>
-    <div className="search-result-actions">
-      <button onClick={() => onChat(result._id)} className="chat-button">Chat</button>
-      <button onClick={() => onAdd(result._id)} className="add-button">Add</button>
+    <div className="flex gap-2">
+      <button 
+        onClick={() => onChat(result._id)} 
+        className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+      >
+        Chat
+      </button>
+      <button 
+        onClick={() => onAdd(result._id)} 
+        className="px-3 py-1 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+      >
+        Add
+      </button>
     </div>
   </div>
 );
@@ -87,21 +120,19 @@ function LeftSidebar({ closeSidebar }) {
     onlineUsers,
     setCurrentChat,
     currentChat,
-    friends,
-    friendRequests,
-    groups,
+    friends = [],
+    friendRequests = [],
+    groups = [],
     loadFriends,
     loadFriendRequests,
-    createGroup,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeTab, setActiveTab] = useState("friends"); // friends | groups | requests
+  const [activeTab, setActiveTab] = useState("friends");
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   
-  // Search users with debounce
   const searchUsers = debounce(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -112,7 +143,6 @@ function LeftSidebar({ closeSidebar }) {
     try {
       setIsSearching(true);
       const response = await usersAPI.searchUsers(query);
-      // Filter out the current user from search results
       setSearchResults(response.data.users.filter(u => u._id !== user._id));
       setIsSearching(false);
     } catch (error) {
@@ -125,15 +155,13 @@ function LeftSidebar({ closeSidebar }) {
   useEffect(() => {
     loadFriends();
     loadFriendRequests();
-  }, []);
+  }, [loadFriends, loadFriendRequests]);
 
-  /* -------------------- Search -------------------- */
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
     searchUsers(query);
     
-    // If search query is not empty, switch to search tab
     if (query.trim()) {
       setActiveTab('search');
     } else if (activeTab === 'search') {
@@ -141,7 +169,6 @@ function LeftSidebar({ closeSidebar }) {
     }
   };
 
-  /* -------------------- Chat & Friends -------------------- */
   const handleCreateChat = async (userId) => {
     try {
       const response = await chatsAPI.getOrCreateChat(userId);
@@ -189,60 +216,91 @@ function LeftSidebar({ closeSidebar }) {
     }
   };
 
-  /* -------------------- Render -------------------- */
   return (
-    <div className="sidebar-container">
+    <div className="bg-white h-full flex flex-col p-4">
       {/* Top Nav */}
-      <div className="top-nav">
-        <div className="logo-container">
-          <img src={assets.logo} className="logo" alt="logo" />
-          <button onClick={closeSidebar} className="close-button">
-            <img src={assets.close_icon} alt="Close" className="close-icon" />
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <img src={assets.logo} className="w-24" alt="logo" />
+          <button onClick={closeSidebar} className="hidden md:block">
+            <img src={assets.close_icon} alt="Close" className="w-6 h-6" />
           </button>
-          <div className="menu-container">
-            <img src={assets.menu_icon} alt="menu" className="menu-icon" />
-            <div className="menu-dropdown">
-              <p className="menu-item">Edit profile</p>
-              <hr />
-              <p className="menu-item">Logout</p>
+          <div className="relative group">
+            <img src={assets.menu_icon} alt="menu" className="cursor-pointer w-6 h-6" />
+            <div className="absolute hidden group-hover:block bg-white shadow-lg rounded-md py-2 w-40 right-0 z-10">
+              <p className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors">Edit profile</p>
+              <hr className="my-1" />
+              <p className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors">Logout</p>
             </div>
           </div>
         </div>
-        <div className="search-container">
-          <img src={assets.search_icon} alt="search" className="search-icon" />
+        <div className="relative">
+          <img 
+            src={assets.search_icon} 
+            alt="search" 
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
+          />
           <input
             type="text"
             placeholder="Search here..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="search-input"
+            className="w-full bg-gray-100 border border-gray-200 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="tabs-container">
-        <button onClick={() => setActiveTab("friends")} className={`tab-button ${activeTab === 'friends' ? 'active' : ''}`}>
+      <div className="flex justify-around my-4 border-b border-gray-200">
+        <button 
+          onClick={() => setActiveTab("friends")} 
+          className={`py-2 px-1 transition-colors ${
+            activeTab === 'friends' 
+              ? 'border-b-2 border-blue-500 text-blue-600 font-medium' 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
           Friends ({friends.length})
         </button>
-        <button onClick={() => setActiveTab("groups")} className={`tab-button ${activeTab === 'groups' ? 'active' : ''}`}>
+        <button 
+          onClick={() => setActiveTab("groups")} 
+          className={`py-2 px-1 transition-colors ${
+            activeTab === 'groups' 
+              ? 'border-b-2 border-blue-500 text-blue-600 font-medium' 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
           Groups ({groups.length})
         </button>
-        <button onClick={() => setActiveTab("requests")} className={`tab-button ${activeTab === 'requests' ? 'active' : ''}`}>
+        <button 
+          onClick={() => setActiveTab("requests")} 
+          className={`py-2 px-1 transition-colors ${
+            activeTab === 'requests' 
+              ? 'border-b-2 border-blue-500 text-blue-600 font-medium' 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
           Requests ({friendRequests.length})
         </button>
         {searchQuery.trim() && (
-          <button onClick={() => setActiveTab("search")} className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}>
+          <button 
+            onClick={() => setActiveTab("search")} 
+            className={`py-2 px-1 transition-colors ${
+              activeTab === 'search' 
+                ? 'border-b-2 border-blue-500 text-blue-600 font-medium' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
             Search
           </button>
         )}
       </div>
 
       {/* List */}
-      <div className="list-container">
+      <div className="flex-1 overflow-y-auto p-4">
         {isSearching ? (
-          <div className="spinner-container">
-            <div className="spinner"></div>
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
         ) : (
           <>
@@ -260,7 +318,7 @@ function LeftSidebar({ closeSidebar }) {
                     />
                   ))
                 ) : (
-                  <div className="empty-search-message">
+                  <div className="text-center py-4 text-gray-500">
                     {searchQuery.trim() ? "No users found" : "Type to search users"}
                   </div>
                 )}
@@ -268,50 +326,79 @@ function LeftSidebar({ closeSidebar }) {
             )}
             
             {/* Friend Requests */}
-            {activeTab === "requests" &&
-              friendRequests.map((request) => (
-                <RequestItem
-                  key={request._id}
-                  request={request}
-                  onAccept={handleAcceptRequest}
-                  onReject={handleRejectRequest}
-                />
-              ))}
+            {activeTab === "requests" && (
+              <>
+                {friendRequests.length > 0 ? (
+                  friendRequests.map((request) => (
+                    <RequestItem
+                      key={request._id}
+                      request={request}
+                      onAccept={handleAcceptRequest}
+                      onReject={handleRejectRequest}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    No pending requests
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Group Chats */}
-            {activeTab === "groups" &&
-              groups.map((group) => (
-                <GroupItem
-                  key={group._id}
-                  group={group}
-                  isActive={currentChat?._id === group._id}
-                  onClick={() => setCurrentChat(group)}
-                />
-              ))}
+            {activeTab === "groups" && (
+              <>
+                {groups.length > 0 ? (
+                  groups.map((group) => (
+                    <GroupItem
+                      key={group._id}
+                      group={group}
+                      isActive={currentChat?._id === group._id}
+                      onClick={() => setCurrentChat(group)}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    No groups yet
+                  </div>
+                )}
+              </>
+            )}
 
-            {/* Default Chats */}
-            {activeTab === "friends" &&
-              chats.map((chat) => {
-                const other = chat.participants.find((p) => p._id !== user._id);
-                if (!other || chat.isGroup) return null;
-                const lastMessage = chat.messages.at(-1);
-                return (
-                  <FriendItem
-                    key={chat._id}
-                    friend={{ ...other, name: other.name }}
-                    isOnline={onlineUsers.includes(other._id)}
-                    isActive={currentChat?._id === chat._id}
-                    onClick={() => setCurrentChat(chat)}
-                  />
-                );
-              })}
+            {/* Friends/Chats */}
+            {activeTab === "friends" && (
+              <>
+                {chats.filter(chat => {
+                  const other = chat.participants.find((p) => p._id !== user._id);
+                  return other && !chat.isGroup;
+                }).length > 0 ? (
+                  chats.map((chat) => {
+                    const other = chat.participants.find((p) => p._id !== user._id);
+                    if (!other || chat.isGroup) return null;
+                    return (
+                      <FriendItem
+                        key={chat._id}
+                        friend={{ ...other, name: other.name }}
+                        isOnline={onlineUsers.includes(other._id)}
+                        isActive={currentChat?._id === chat._id}
+                        onClick={() => setCurrentChat(chat)}
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    No chats yet
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
 
       {/* Create Group Button */}
       <button
-        className="create-group-button"
+        className="bg-blue-500 text-white rounded-full px-4 py-2 self-center mt-4 hover:bg-blue-600 transition-colors"
         onClick={() => setIsGroupModalOpen(true)}
       >
         Create Group

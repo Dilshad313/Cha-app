@@ -1,6 +1,8 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+// context/AppContext.js
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { authAPI, usersAPI, chatsAPI } from '../config/api';
 import { io } from 'socket.io-client';
+import { toast } from 'react-toastify';
 
 const AppContext = createContext();
 
@@ -15,220 +17,213 @@ export const useApp = () => {
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [chats, setChats] = useState([]);
-  const [groups, setGroups] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState({});
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
+  const [apiConnected, setApiConnected] = useState(true);
 
-  // Check for existing token on app load
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      loadUserData();
-    } else {
-      setLoading(false);
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const socketBaseUrl = apiBaseUrl.replace(/\/api$/, ''); // Remove trailing /api if present
+
+  // Check API connectivity
+  const checkApiHealth = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/health`);
+      setApiConnected(response.ok);
+      return response.ok;
+    } catch (error) {
+      setApiConnected(false);
+      return false;
     }
-  }, []);
-
-  // Load friends and requests when user is set
-  useEffect(() => {
-    if (user) {
-      loadFriends();
-      loadFriendRequests();
-      registerPush();
-    }
-  }, [user]);
-
-  // Initialize socket connection
-  const initSocket = (token) => {
-    const newSocket = io(import.meta.env.VITE_API_BASE_URL, {
-      auth: { token }
-    });
-    
-    newSocket.on('connect', () => {
-      console.log('Connected to server');
-    });
-    
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from server');
-    });
-
-    // Handle incoming messages
-    newSocket.on('receive-message', (message) => {
-      setChats(prevChats => {
-        const updatedChats = prevChats.map(chat => {
-          if (chat._id === message.chatId) {
-            return {
-              ...chat,
-              messages: [...(chat.messages || []), message],
-              updatedAt: message.timestamp,
-            };
-          }
-          return chat;
-        });
-        return updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-      });
-
-      if (currentChat?._id === message.chatId) {
-        setMessages(prev => [...prev, message]);
-      }
-    });
-
-    // Handle online users
-    newSocket.on('online-users', (users) => {
-      setOnlineUsers(users);
-    });
-
-    newSocket.on('user-online', (userId) => {
-      setOnlineUsers(prev => [...prev, userId]);
-    });
-
-    newSocket.on('user-offline', (userId) => {
-      setOnlineUsers(prev => prev.filter(id => id !== userId));
-    });
-
-    // Handle online users
-    newSocket.on('online-users', (users) => {
-      setOnlineUsers(users);
-    });
-
-    newSocket.on('user-online', (userId) => {
-      setOnlineUsers(prev => [...prev, userId]);
-    });
-
-    newSocket.on('user-offline', (userId) => {
-      setOnlineUsers(prev => prev.filter(id => id !== userId));
-    });
-
-    // Handle typing indicators
-    const typingTimeouts = {};
-    newSocket.on('user-typing', ({ userId, isTyping, chatId }) => {
-      const key = `${chatId}-${userId}`;
-      if (isTyping) {
-        setTypingUsers(prev => ({ ...prev, [key]: true }));
-        if (typingTimeouts[key]) {
-          clearTimeout(typingTimeouts[key]);
-        }
-        typingTimeouts[key] = setTimeout(() => {
-          setTypingUsers(prev => ({ ...prev, [key]: false }));
-        }, 3000);
-      } else {
-        if (typingTimeouts[key]) {
-          clearTimeout(typingTimeouts[key]);
-        }
-        setTypingUsers(prev => ({ ...prev, [key]: false }));
-      }
-    });
-
-    // Handle message edited
-    newSocket.on('message-edited', ({ messageId, content, edited, editedAt }) => {
-      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content, edited, editedAt } : m));
-    });
-
-    // Handle message deleted
-    newSocket.on('message-deleted', ({ messageId }) => {
-      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deleted: true, content: '[Message deleted]' } : m));
-    });
-
-    // Handle reaction added
-    newSocket.on('reaction-added', ({ messageId, reaction, userId }) => {
-      setMessages(prev => prev.map(m => {
-        if (m._id === messageId) {
-          const reactions = { ...m.reactions };
-          if (!reactions[reaction]) reactions[reaction] = [];
-          if (!reactions[reaction].includes(userId)) reactions[reaction].push(userId);
-          return { ...m, reactions };
-        }
-        return m;
-      }));
-    });
-
-    // Handle reaction removed
-    newSocket.on('reaction-removed', ({ messageId, reaction, userId }) => {
-      setMessages(prev => prev.map(m => {
-        if (m._id === messageId) {
-          const reactions = { ...m.reactions };
-          if (reactions[reaction]) {
-            reactions[reaction] = reactions[reaction].filter(id => id !== userId);
-            if (reactions[reaction].length === 0) {
-              delete reactions[reaction];
-            }
-          }
-          return { ...m, reactions };
-        }
-        return m;
-      }));
-    });
-
-    // Handle messages read
-    newSocket.on('messages-read', ({ messageIds, userId }) => {
-      setMessages(prev => prev.map(m =>
-        messageIds.includes(m._id)
-          ? { ...m, readBy: [...(m.readBy || []), { user: userId }] }
-          : m
-      ));
-    });
-
-    // Handle group updates
-    newSocket.on('group-updated', (updatedChat) => {
-        setChats(prev => prev.map(c => c._id === updatedChat.chatId ? { ...c, ...updatedChat } : c));
-        if (currentChat?._id === updatedChat.chatId) {
-            setCurrentChat(prev => ({ ...prev, ...updatedChat }));
-        }
-    });
-
-    newSocket.on('new-group-chat', (newGroup) => {
-        setChats(prev => [newGroup, ...prev]);
-    });
-    
-    setSocket(newSocket);
-    return newSocket;
   };
 
-  // Load user data
+  // Load user data on app start
+  useEffect(() => {
+    const initializeApp = async () => {
+      const isHealthy = await checkApiHealth();
+      if (!isHealthy) {
+        console.warn('API server is not reachable');
+        setLoading(false);
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        await loadUserData();
+      } else {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  // Initialize socket connection
+  const initSocket = useCallback((token) => {
+    try {
+      const newSocket = io(socketBaseUrl, {
+        auth: { token },
+        timeout: 10000,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      newSocket.on('connect', () => {
+        console.log('✅ Connected to server');
+        setApiConnected(true);
+      });
+
+      newSocket.on('disconnect', (reason) => {
+        console.log('❌ Disconnected from server:', reason);
+        if (reason === 'io server disconnect') {
+          // Server intentionally disconnected, need to reconnect manually
+          newSocket.connect();
+        }
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        setApiConnected(false);
+      });
+
+      // Handle online users
+      newSocket.on('online-users', (users) => {
+        setOnlineUsers(users);
+      });
+
+      newSocket.on('user-online', (userId) => {
+        setOnlineUsers(prev => [...new Set([...prev, userId])]);
+      });
+
+      newSocket.on('user-offline', (userId) => {
+        setOnlineUsers(prev => prev.filter(id => id !== userId));
+      });
+
+      // Handle incoming messages
+      newSocket.on('receive-message', (message) => {
+        setChats(prevChats => {
+          const updatedChats = prevChats.map(chat => {
+            if (chat._id === message.chatId) {
+              const messageExists = chat.messages?.some(m => m._id === message._id);
+              if (!messageExists) {
+                return {
+                  ...chat,
+                  messages: [...(chat.messages || []), message],
+                  updatedAt: message.timestamp,
+                };
+              }
+            }
+            return chat;
+          });
+          return updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        });
+
+        if (currentChat?._id === message.chatId) {
+          setCurrentChat(prev => ({
+            ...prev,
+            messages: [...(prev.messages || []), message]
+          }));
+        }
+      });
+
+      // Handle typing indicators
+      const typingTimeouts = {};
+      newSocket.on('user-typing', ({ userId, isTyping, chatId }) => {
+        const key = `${chatId}-${userId}`;
+        
+        if (isTyping) {
+          setTypingUsers(prev => ({ ...prev, [key]: true }));
+          // Clear existing timeout
+          if (typingTimeouts[key]) {
+            clearTimeout(typingTimeouts[key]);
+          }
+          // Set new timeout to clear typing indicator
+          typingTimeouts[key] = setTimeout(() => {
+            setTypingUsers(prev => ({ ...prev, [key]: false }));
+          }, 3000);
+        } else {
+          setTypingUsers(prev => ({ ...prev, [key]: false }));
+          if (typingTimeouts[key]) {
+            clearTimeout(typingTimeouts[key]);
+          }
+        }
+      });
+
+      setSocket(newSocket);
+      return newSocket;
+    } catch (error) {
+      console.error('Socket initialization error:', error);
+      return null;
+    }
+  }, [currentChat]);
+
+  // Load user data with better error handling
   const loadUserData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('No token found');
-      
+      setLoading(true);
       const response = await usersAPI.getProfile();
       setUser(response.data.user);
-      
-      // Initialize socket connection
-      initSocket(token);
-      
-      return response.data.user;
+
+      // Only now, after successful profile fetch, connect socket
+      const token = localStorage.getItem('token');
+      if (token) {
+        const socketInstance = initSocket(token);
+        if (socketInstance) {
+          await Promise.allSettled([
+            loadChats(),
+            loadFriends(),
+            loadFriendRequests()
+          ]);
+        }
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
-      localStorage.removeItem('token');
-      throw error;
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+      }
+      toast.error('Failed to load user data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load friends
-  const loadFriends = async () => {
+  // Load chats with error handling
+  const loadChats = async () => {
     try {
-      const response = await usersAPI.getFriends();
-      setFriends(response.data.friends);
+      const response = await chatsAPI.getUserChats();
+      setChats(response.data.chats || []);
     } catch (error) {
-      console.error('Error loading friends:', error);
+      console.error('Error loading chats:', error);
+      // Don't show toast for this as it might be expected if no chats exist
     }
   };
 
-  // Load friend requests
+  // Load friends with error handling
+  const loadFriends = async () => {
+    try {
+      const response = await usersAPI.getFriends();
+      setFriends(response.data.friends || []);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+      // Set empty array instead of showing error
+      setFriends([]);
+    }
+  };
+
+  // Load friend requests with error handling
   const loadFriendRequests = async () => {
     try {
       const response = await usersAPI.getFriendRequests();
-      setFriendRequests(response.data.requests);
+      setFriendRequests(response.data.requests || []);
     } catch (error) {
       console.error('Error loading friend requests:', error);
+      // Set empty array instead of showing error
+      setFriendRequests([]);
     }
   };
 
@@ -237,11 +232,7 @@ export const AppProvider = ({ children }) => {
     try {
       const response = await authAPI.login({ email, password });
       localStorage.setItem('token', response.data.token);
-      setUser(response.data.user);
-      
-      // Initialize socket connection
-      initSocket(response.data.token);
-      
+      await loadUserData();
       return response.data;
     } catch (error) {
       throw error;
@@ -253,163 +244,99 @@ export const AppProvider = ({ children }) => {
     try {
       const response = await authAPI.register(userData);
       localStorage.setItem('token', response.data.token);
-      setUser(response.data.user);
-      
-      // Initialize socket connection
-      initSocket(response.data.token);
-      
+      await loadUserData();
       return response.data;
     } catch (error) {
       throw error;
     }
   };
 
-  // Logout user - FIXED VERSION
+  // Enhanced logout function
   const logoutUser = async () => {
     try {
       await authAPI.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout API error:', error);
+      // Continue with logout even if API call fails
     } finally {
       localStorage.removeItem('token');
       setUser(null);
       setChats([]);
-      setGroups([]);
-      setCurrentChat(null);
-      setMessages([]);
-      setOnlineUsers([]);
-      setTypingUsers({});
       setFriends([]);
       setFriendRequests([]);
+      setCurrentChat(null);
       
       if (socket) {
         socket.disconnect();
         setSocket(null);
       }
       
-      // Force reload to clear all state
       window.location.href = '/';
     }
   };
 
-  // Send message function for real-time chat
-  const sendMessage = (chatId, content, image = null) => {
+  // Socket-based functions with fallbacks
+  const sendMessage = async (chatId, content, image = null) => {
     if (socket) {
       socket.emit('send-message', {
         chatId,
         message: {
-          content,
+          content: content || '',
           image,
           timestamp: new Date()
         }
       });
+    } else {
+      // Fallback to API call
+      try {
+        const formData = new FormData();
+        if (content) formData.append('content', content);
+        if (image) formData.append('image', image);
+        
+        await chatsAPI.sendMessage(chatId, formData);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast.error('Failed to send message');
+      }
     }
   };
 
-  // Join chat room
   const joinChat = (chatId) => {
     if (socket) {
       socket.emit('join-chat', chatId);
     }
   };
 
-  // Typing indicator
   const sendTypingIndicator = (chatId, isTyping) => {
-    if (socket) {
+    if (socket && currentChat) {
       socket.emit('typing', { chatId, isTyping });
     }
   };
 
-  // Edit message
-  const editMessage = (chatId, messageId, content) => {
+  const editMessage = async (chatId, messageId, content) => {
     if (socket) {
       socket.emit('edit-message', { chatId, messageId, content });
     } else {
-      chatsAPI.editMessage(chatId, messageId, content);
-    }
-  };
-
-  // Delete message
-  const deleteMessage = (chatId, messageId) => {
-    if (socket) {
-      socket.emit('delete-message', { chatId, messageId });
-    } else {
-      chatsAPI.deleteMessage(chatId, messageId);
-    }
-  };
-
-  // Add reaction
-  const addReaction = (chatId, messageId, reaction) => {
-    if (socket) {
-      socket.emit('add-reaction', { chatId, messageId, reaction });
-    } else {
-      chatsAPI.addReaction(chatId, messageId, reaction);
-    }
-  };
-
-  // Remove reaction
-  const removeReaction = (chatId, messageId, reaction) => {
-    if (socket) {
-      socket.emit('remove-reaction', { chatId, messageId, reaction });
-    } else {
-      chatsAPI.removeReaction(chatId, messageId, reaction);
-    }
-  };
-
-  // Mark messages as read
-  const markMessagesAsRead = (chatId, messageIds) => {
-    if (socket) {
-      socket.emit('mark-read', { chatId, messageIds });
-    } else {
-      chatsAPI.markAsRead(chatId, messageIds);
-    }
-  };
-
-  // Create group
-  const createGroup = async (groupName, participants) => {
-    try {
-      const response = await chatsAPI.createGroup({ groupName, participants });
-      const newGroup = response.data.chat;
-      setGroups(prev => [...prev, newGroup]);
-      setChats(prev => [...prev, newGroup]);
-      return newGroup;
-    } catch (error) {
-      console.error('Error creating group:', error);
-      throw error;
-    }
-  };
-
-  // Register for push notifications
-  const registerPush = async () => {
-    if ('serviceWorker' in navigator && 'PushManager' in window && user) {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
-        });
-        // Send to server
-        await api.post('/api/notifications/register', { subscription: JSON.stringify(subscription) });
+        await chatsAPI.editMessage(chatId, messageId, content);
       } catch (error) {
-        console.error('Error registering push:', error);
+        console.error('Error editing message:', error);
+        toast.error('Failed to edit message');
       }
     }
   };
 
-  // Helper function for VAPID key
-  const urlBase64ToUint8Array = (base64String) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/\-/g, '+')
-      .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+  const deleteMessage = async (chatId, messageId) => {
+    if (socket) {
+      socket.emit('delete-message', { chatId, messageId });
+    } else {
+      try {
+        await chatsAPI.deleteMessage(chatId, messageId);
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        toast.error('Failed to delete message');
+      }
     }
-    return outputArray;
   };
 
   const value = {
@@ -417,20 +344,15 @@ export const AppProvider = ({ children }) => {
     setUser,
     chats,
     setChats,
-    groups,
-    setGroups,
     currentChat,
     setCurrentChat,
-    messages,
-    setMessages,
     socket,
     loading,
     onlineUsers,
     typingUsers,
     friends,
-    setFriends,
     friendRequests,
-    setFriendRequests,
+    apiConnected,
     loadUserData,
     loginUser,
     registerUser,
@@ -440,17 +362,49 @@ export const AppProvider = ({ children }) => {
     sendTypingIndicator,
     editMessage,
     deleteMessage,
-    addReaction,
-    removeReaction,
-    markMessagesAsRead,
-    createGroup,
+    addReaction: (chatId, messageId, reaction) => {
+      if (socket) {
+        socket.emit('add-reaction', { chatId, messageId, reaction });
+      } else {
+        chatsAPI.addReaction(chatId, messageId, reaction).catch(console.error);
+      }
+    },
+    removeReaction: (chatId, messageId, reaction) => {
+      if (socket) {
+        socket.emit('remove-reaction', { chatId, messageId, reaction });
+      } else {
+        chatsAPI.removeReaction(chatId, messageId, reaction).catch(console.error);
+      }
+    },
+    markMessagesAsRead: (chatId, messageIds) => {
+      if (socket) {
+        socket.emit('mark-read', { chatId, messageIds });
+      } else {
+        chatsAPI.markAsRead(chatId, messageIds).catch(console.error);
+      }
+    },
+    createGroup: async (groupName, participants) => {
+      try {
+        const response = await chatsAPI.createGroup({ 
+          chatName: groupName, 
+          participants 
+        });
+        const newGroup = response.data.group;
+        setChats(prev => [newGroup, ...prev]);
+        return newGroup;
+      } catch (error) {
+        console.error('Error creating group:', error);
+        throw error;
+      }
+    },
     loadFriends,
-    loadFriendRequests
+    loadFriendRequests,
+    checkApiHealth
   };
 
   return (
     <AppContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AppContext.Provider>
   );
 };
