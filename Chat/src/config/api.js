@@ -86,28 +86,14 @@ const retryableApiCall = async (apiCall, retries = 2) => {
 
 export const checkApiHealth = async () => {
   try {
-    // Try multiple endpoints
-    const endpoints = ['/health', '/api/health'];
-    
-    for (const endpoint of endpoints) {
-      try {
-        const response = await fetch(`${API_BASE_URL.replace('/api', '')}${endpoint}`, {
-          method: 'GET',
-          timeout: 5000,
-        });
-        
-        if (response.ok) {
-          return true;
-        }
-      } catch (error) {
-        console.log(`Health check failed for ${endpoint}:`, error.message);
-        // Continue to next endpoint
-      }
-    }
-    
-    return false;
+    // The health check endpoint is /api/health
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      timeout: 5000,
+    });
+    return response.ok;
   } catch (error) {
-    console.error('Health check error:', error);
+    console.error('Health check error:', error.message);
     return false;
   }
 };
