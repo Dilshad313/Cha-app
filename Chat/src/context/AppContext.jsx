@@ -1,6 +1,6 @@
 // context/AppContext.js
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { authAPI, usersAPI, chatsAPI } from '../config/api';
+import { authAPI, usersAPI, chatsAPI, checkApiHealth } from '../config/api';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 
@@ -29,25 +29,16 @@ export const AppProvider = ({ children }) => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
   const socketBaseUrl = apiBaseUrl.replace(/\/api$/, '');
 
-  const checkApiHealth = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/health`);
-      setApiConnected(response.ok);
-      return response.ok;
-    } catch (error) {
-      setApiConnected(false);
-      return false;
-    }
-  };
-
   useEffect(() => {
     const initializeApp = async () => {
       const isHealthy = await checkApiHealth();
       if (!isHealthy) {
         console.warn('API server is not reachable');
         setLoading(false);
+        setApiConnected(false);
         return;
       }
+      setApiConnected(true);
 
       const token = localStorage.getItem('token');
       if (token) {
@@ -85,6 +76,9 @@ export const AppProvider = ({ children }) => {
       newSocket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
         setApiConnected(false);
+        if (error.message.includes('Invalid token')) {
+          logoutUser();
+        }
       });
 
       newSocket.on('online-users', (users) => setOnlineUsers(users));
@@ -146,8 +140,15 @@ export const AppProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      if (error.response?.status === 401) localStorage.removeItem('token');
-      toast.error('Failed to load user data');
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please log in again.');
+        logoutUser();
+      } else if (error.message.includes('timeout')) {
+        toast.error('Server is not responding. Please try again later.');
+        setApiConnected(false);
+      } else {
+        toast.error('Failed to load user data.');
+      }
     } finally {
       setLoading(false);
     }
