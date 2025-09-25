@@ -8,6 +8,7 @@ import Chat from './pages/Chat';
 import ProfileUpdate from './pages/ProfileUpdate';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import ConnectionStatus from './components/ConnectionStatus';
 
 // A custom hook to get query parameters
 function useQuery() {
@@ -22,6 +23,7 @@ function App() {
   return (
     <>
       <ToastContainer />
+      <ConnectionStatus />
       <Routes>
         <Route
           path="/"

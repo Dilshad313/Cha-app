@@ -84,6 +84,39 @@ const retryableApiCall = async (apiCall, retries = 2) => {
   }
 };
 
+export const checkApiHealth = async () => {
+  try {
+    // Try multiple endpoints
+    const endpoints = ['/health', '/api/health'];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(`${API_BASE_URL.replace('/api', '')}${endpoint}`, {
+          method: 'GET',
+          timeout: 5000,
+        });
+        
+        if (response.ok) {
+          return true;
+        }
+      } catch (error) {
+        console.log(`Health check failed for ${endpoint}:`, error.message);
+        // Continue to next endpoint
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Health check error:', error);
+    return false;
+  }
+};
+
+// Add to your existing api object
+export const healthAPI = {
+  check: checkApiHealth
+};
+
 export const usersAPI = {
   getProfile: () => retryableApiCall(() => api.get('/users/profile')),
   updateProfile: (formData) => api.put('/users/profile', formData, {

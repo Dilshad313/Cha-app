@@ -27,9 +27,8 @@ export const AppProvider = ({ children }) => {
   const [apiConnected, setApiConnected] = useState(true);
 
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-  const socketBaseUrl = apiBaseUrl.replace(/\/api$/, ''); // Remove trailing /api if present
+  const socketBaseUrl = apiBaseUrl.replace(/\/api$/, '');
 
-  // Check API connectivity
   const checkApiHealth = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/health`);
@@ -41,7 +40,6 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Load user data on app start
   useEffect(() => {
     const initializeApp = async () => {
       const isHealthy = await checkApiHealth();
@@ -62,7 +60,6 @@ export const AppProvider = ({ children }) => {
     initializeApp();
   }, []);
 
-  // Initialize socket connection
   const initSocket = useCallback((token) => {
     try {
       const newSocket = io(socketBaseUrl, {
@@ -81,7 +78,6 @@ export const AppProvider = ({ children }) => {
       newSocket.on('disconnect', (reason) => {
         console.log('❌ Disconnected from server:', reason);
         if (reason === 'io server disconnect') {
-          // Server intentionally disconnected, need to reconnect manually
           newSocket.connect();
         }
       });
@@ -91,31 +87,17 @@ export const AppProvider = ({ children }) => {
         setApiConnected(false);
       });
 
-      // Handle online users
-      newSocket.on('online-users', (users) => {
-        setOnlineUsers(users);
-      });
+      newSocket.on('online-users', (users) => setOnlineUsers(users));
+      newSocket.on('user-online', (userId) => setOnlineUsers(prev => [...new Set([...prev, userId])]));
+      newSocket.on('user-offline', (userId) => setOnlineUsers(prev => prev.filter(id => id !== userId)));
 
-      newSocket.on('user-online', (userId) => {
-        setOnlineUsers(prev => [...new Set([...prev, userId])]);
-      });
-
-      newSocket.on('user-offline', (userId) => {
-        setOnlineUsers(prev => prev.filter(id => id !== userId));
-      });
-
-      // Handle incoming messages
       newSocket.on('receive-message', (message) => {
         setChats(prevChats => {
           const updatedChats = prevChats.map(chat => {
             if (chat._id === message.chatId) {
               const messageExists = chat.messages?.some(m => m._id === message._id);
               if (!messageExists) {
-                return {
-                  ...chat,
-                  messages: [...(chat.messages || []), message],
-                  updatedAt: message.timestamp,
-                };
+                return { ...chat, messages: [...(chat.messages || []), message], updatedAt: message.timestamp };
               }
             }
             return chat;
@@ -124,33 +106,20 @@ export const AppProvider = ({ children }) => {
         });
 
         if (currentChat?._id === message.chatId) {
-          setCurrentChat(prev => ({
-            ...prev,
-            messages: [...(prev.messages || []), message]
-          }));
+          setCurrentChat(prev => ({ ...prev, messages: [...(prev.messages || []), message] }));
         }
       });
 
-      // Handle typing indicators
       const typingTimeouts = {};
       newSocket.on('user-typing', ({ userId, isTyping, chatId }) => {
         const key = `${chatId}-${userId}`;
-        
         if (isTyping) {
           setTypingUsers(prev => ({ ...prev, [key]: true }));
-          // Clear existing timeout
-          if (typingTimeouts[key]) {
-            clearTimeout(typingTimeouts[key]);
-          }
-          // Set new timeout to clear typing indicator
-          typingTimeouts[key] = setTimeout(() => {
-            setTypingUsers(prev => ({ ...prev, [key]: false }));
-          }, 3000);
+          if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
+          typingTimeouts[key] = setTimeout(() => setTypingUsers(prev => ({ ...prev, [key]: false })), 3000);
         } else {
           setTypingUsers(prev => ({ ...prev, [key]: false }));
-          if (typingTimeouts[key]) {
-            clearTimeout(typingTimeouts[key]);
-          }
+          if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
         }
       });
 
@@ -162,72 +131,57 @@ export const AppProvider = ({ children }) => {
     }
   }, [currentChat]);
 
-  // Load user data with better error handling
   const loadUserData = async () => {
     try {
       setLoading(true);
       const response = await usersAPI.getProfile();
       setUser(response.data.user);
 
-      // Only now, after successful profile fetch, connect socket
       const token = localStorage.getItem('token');
       if (token) {
         const socketInstance = initSocket(token);
         if (socketInstance) {
-          await Promise.allSettled([
-            loadChats(),
-            loadFriends(),
-            loadFriendRequests()
-          ]);
+          await Promise.allSettled([loadChats(), loadFriends(), loadFriendRequests()]);
         }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-      }
+      if (error.response?.status === 401) localStorage.removeItem('token');
       toast.error('Failed to load user data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load chats with error handling
   const loadChats = async () => {
     try {
       const response = await chatsAPI.getUserChats();
       setChats(response.data.chats || []);
     } catch (error) {
       console.error('Error loading chats:', error);
-      // Don't show toast for this as it might be expected if no chats exist
     }
   };
 
-  // Load friends with error handling
   const loadFriends = async () => {
     try {
       const response = await usersAPI.getFriends();
       setFriends(response.data.friends || []);
     } catch (error) {
       console.error('Error loading friends:', error);
-      // Set empty array instead of showing error
       setFriends([]);
     }
   };
 
-  // Load friend requests with error handling
   const loadFriendRequests = async () => {
     try {
       const response = await usersAPI.getFriendRequests();
       setFriendRequests(response.data.requests || []);
     } catch (error) {
       console.error('Error loading friend requests:', error);
-      // Set empty array instead of showing error
       setFriendRequests([]);
     }
   };
 
-  // Login user
   const loginUser = async (email, password) => {
     try {
       const response = await authAPI.login({ email, password });
@@ -239,7 +193,6 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Register user
   const registerUser = async (userData) => {
     try {
       const response = await authAPI.register(userData);
@@ -251,48 +204,29 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Enhanced logout function
   const logoutUser = async () => {
-    try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout API error:', error);
-      // Continue with logout even if API call fails
-    } finally {
+    try { await authAPI.logout(); } catch (error) { console.error('Logout API error:', error); }
+    finally {
       localStorage.removeItem('token');
       setUser(null);
       setChats([]);
       setFriends([]);
       setFriendRequests([]);
       setCurrentChat(null);
-      
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
-      
+      if (socket) socket.disconnect();
+      setSocket(null);
       window.location.href = '/';
     }
   };
 
-  // Socket-based functions with fallbacks
   const sendMessage = async (chatId, content, image = null) => {
     if (socket) {
-      socket.emit('send-message', {
-        chatId,
-        message: {
-          content: content || '',
-          image,
-          timestamp: new Date()
-        }
-      });
+      socket.emit('send-message', { chatId, message: { content: content || '', image, timestamp: new Date() } });
     } else {
-      // Fallback to API call
       try {
         const formData = new FormData();
         if (content) formData.append('content', content);
         if (image) formData.append('image', image);
-        
         await chatsAPI.sendMessage(chatId, formData);
       } catch (error) {
         console.error('Error sending message:', error);
@@ -301,51 +235,15 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const joinChat = (chatId) => {
-    if (socket) {
-      socket.emit('join-chat', chatId);
-    }
-  };
-
-  const sendTypingIndicator = (chatId, isTyping) => {
-    if (socket && currentChat) {
-      socket.emit('typing', { chatId, isTyping });
-    }
-  };
-
-  const editMessage = async (chatId, messageId, content) => {
-    if (socket) {
-      socket.emit('edit-message', { chatId, messageId, content });
-    } else {
-      try {
-        await chatsAPI.editMessage(chatId, messageId, content);
-      } catch (error) {
-        console.error('Error editing message:', error);
-        toast.error('Failed to edit message');
-      }
-    }
-  };
-
-  const deleteMessage = async (chatId, messageId) => {
-    if (socket) {
-      socket.emit('delete-message', { chatId, messageId });
-    } else {
-      try {
-        await chatsAPI.deleteMessage(chatId, messageId);
-      } catch (error) {
-        console.error('Error deleting message:', error);
-        toast.error('Failed to delete message');
-      }
-    }
-  };
+  const joinChat = (chatId) => { if (socket) socket.emit('join-chat', chatId); };
+  const sendTypingIndicator = (chatId, isTyping) => { if (socket && currentChat) socket.emit('typing', { chatId, isTyping }); };
+  const editMessage = async (chatId, messageId, content) => { if (socket) socket.emit('edit-message', { chatId, messageId, content }); else await chatsAPI.editMessage(chatId, messageId, content).catch(console.error); };
+  const deleteMessage = async (chatId, messageId) => { if (socket) socket.emit('delete-message', { chatId, messageId }); else await chatsAPI.deleteMessage(chatId, messageId).catch(console.error); };
 
   const value = {
-    user,
-    setUser,
-    chats,
-    setChats,
-    currentChat,
-    setCurrentChat,
+    user, setUser,
+    chats, setChats,
+    currentChat, setCurrentChat,
     socket,
     loading,
     onlineUsers,
@@ -362,51 +260,16 @@ export const AppProvider = ({ children }) => {
     sendTypingIndicator,
     editMessage,
     deleteMessage,
-    addReaction: (chatId, messageId, reaction) => {
-      if (socket) {
-        socket.emit('add-reaction', { chatId, messageId, reaction });
-      } else {
-        chatsAPI.addReaction(chatId, messageId, reaction).catch(console.error);
-      }
-    },
-    removeReaction: (chatId, messageId, reaction) => {
-      if (socket) {
-        socket.emit('remove-reaction', { chatId, messageId, reaction });
-      } else {
-        chatsAPI.removeReaction(chatId, messageId, reaction).catch(console.error);
-      }
-    },
-    markMessagesAsRead: (chatId, messageIds) => {
-      if (socket) {
-        socket.emit('mark-read', { chatId, messageIds });
-      } else {
-        chatsAPI.markAsRead(chatId, messageIds).catch(console.error);
-      }
-    },
-    createGroup: async (groupName, participants) => {
-      try {
-        const response = await chatsAPI.createGroup({ 
-          chatName: groupName, 
-          participants 
-        });
-        const newGroup = response.data.group;
-        setChats(prev => [newGroup, ...prev]);
-        return newGroup;
-      } catch (error) {
-        console.error('Error creating group:', error);
-        throw error;
-      }
-    },
+    addReaction: (chatId, messageId, reaction) => { if (socket) socket.emit('add-reaction', { chatId, messageId, reaction }); else chatsAPI.addReaction(chatId, messageId, reaction).catch(console.error); },
+    removeReaction: (chatId, messageId, reaction) => { if (socket) socket.emit('remove-reaction', { chatId, messageId, reaction }); else chatsAPI.removeReaction(chatId, messageId, reaction).catch(console.error); },
+    markMessagesAsRead: (chatId, messageIds) => { if (socket) socket.emit('mark-read', { chatId, messageIds }); else chatsAPI.markAsRead(chatId, messageIds).catch(console.error); },
+    createGroup: async (groupName, participants) => { try { const response = await chatsAPI.createGroup({ chatName: groupName, participants }); const newGroup = response.data.group; setChats(prev => [newGroup, ...prev]); return newGroup; } catch (error) { console.error('Error creating group:', error); throw error; } },
     loadFriends,
     loadFriendRequests,
     checkApiHealth
   };
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
 export default AppProvider;
