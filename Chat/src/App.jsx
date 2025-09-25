@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useApp } from './context/AppContext';
@@ -9,8 +9,15 @@ import ProfileUpdate from './pages/ProfileUpdate';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 
+// A custom hook to get query parameters
+function useQuery() {
+  return new URLSearchParams(useLocation().search);
+}
+
 function App() {
   const { user } = useApp();
+  const query = useQuery();
+  const resetToken = query.get('token');
 
   return (
     <>
@@ -34,7 +41,7 @@ function App() {
         />
         <Route
           path="/reset-password"
-          element={!user ? <ResetPassword /> : <Navigate to="/chat" />}
+          element={resetToken ? <ResetPassword /> : <Navigate to="/" />}
         />
       </Routes>
     </>

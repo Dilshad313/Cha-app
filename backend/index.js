@@ -3,6 +3,14 @@ import dotenv from "dotenv";
 // Load environment variables FIRST
 dotenv.config();
 
+// Validate essential environment variables
+const requiredEnvVars = ['JWT_SECRET', 'MONGO_URI', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+
+if (missingEnvVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+}
+
 import express from "express";
 import cors from "cors";
 import connectDB from "./config/database.js";
@@ -102,11 +110,19 @@ app.post("/api/notifications/send", async (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({ message: 'CORS policy violation' });
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  // Log detailed error in development
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(err);
   }
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+
+  res.status(statusCode).json({
+    message: message,
+    // Optionally include stack trace in development
+    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack,
+  });
 });
 
 // Handle 404
@@ -143,8 +159,11 @@ io.use(async (socket, next) => {
     return next(new Error('Authentication error'));
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.user = await User.findById(decoded.userId).select('-password');
+    if (!socket.user) {
+      return next(new Error('Authentication error: User not found'));
+    }
     next();
   } catch (error) {
     next(new Error('Authentication error'));
