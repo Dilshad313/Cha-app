@@ -56,6 +56,7 @@ io.use(async (socket, next) => {
     }
 
     socket.user = user;
+    socket.userId = user._id.toString();
     next();
   } catch (error) {
     console.error('Socket auth error:', error.message);
@@ -152,7 +153,7 @@ io.on('connection', (socket) => {
       };
 
       // Emit to all participants in the chat
-      io.to(chatId).emit('receive-message', populatedMessage);
+      io.to(chatId).emit('receive-message', { ...populatedMessage, chatId });
 
       // Notify participants who are not in the chat
       chat.participants.forEach(participant => {

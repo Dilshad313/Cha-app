@@ -85,10 +85,11 @@ export const AppProvider = ({ children }) => {
       newSocket.on('user-online', (userId) => setOnlineUsers(prev => [...new Set([...prev, userId])]));
       newSocket.on('user-offline', (userId) => setOnlineUsers(prev => prev.filter(id => id !== userId)));
 
-      newSocket.on('receive-message', (message) => {
+      newSocket.on('receive-message', (data) => {
+        const { chatId, ...message } = data;
         setChats(prevChats => {
           const updatedChats = prevChats.map(chat => {
-            if (chat._id === message.chatId) {
+            if (chat._id === chatId) {
               const messageExists = chat.messages?.some(m => m._id === message._id);
               if (!messageExists) {
                 return { ...chat, messages: [...(chat.messages || []), message], updatedAt: message.timestamp };
@@ -99,7 +100,7 @@ export const AppProvider = ({ children }) => {
           return updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
         });
 
-        if (currentChat?._id === message.chatId) {
+        if (currentChat?._id === chatId) {
           setCurrentChat(prev => ({ ...prev, messages: [...(prev.messages || []), message] }));
         }
       });
@@ -222,7 +223,12 @@ export const AppProvider = ({ children }) => {
 
   const sendMessage = async (chatId, content, image = null) => {
     if (socket) {
-      socket.emit('send-message', { chatId, message: { content: content || '', image, timestamp: new Date() } });
+      socket.emit('send-message', {
+        chatId,
+        content: content || '',
+        image: image || null,
+        timestamp: new Date()
+      });
     } else {
       try {
         const formData = new FormData();
