@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './GroupChatModal.css';
 import { toast } from 'react-toastify';
 import { usersAPI } from '../config/api';
 import { useApp } from '../context/AppContext';
@@ -59,29 +60,29 @@ const GroupChatModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Create Group Chat</h2>
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <h2 className="modal-title">Create Group Chat</h2>
         <input
           type="text"
           placeholder="Group Name"
           value={groupName}
           onChange={(e) => setGroupName(e.target.value)}
-          className="w-full p-2 border rounded mb-4"
+          className="modal-input"
         />
         <input
           type="text"
           placeholder="Search for users to add"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full p-2 border rounded mb-4"
+          className="modal-input"
         />
 
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="selected-users-container">
           {selectedUsers.map((u) => (
-            <div key={u._id} className="bg-blue-500 text-white px-2 py-1 rounded-full flex items-center">
+            <div key={u._id} className="selected-user">
               <span>{u.name}</span>
-              <button onClick={() => handleRemoveUser(u)} className="ml-2 text-white">
+              <button onClick={() => handleRemoveUser(u)} className="remove-user-button">
                 &times;
               </button>
             </div>
@@ -89,27 +90,27 @@ const GroupChatModal = ({ isOpen, onClose }) => {
         </div>
 
         {loading ? (
-          <p>Loading...</p>
+          <p className="loading-text">Loading...</p>
         ) : (
-          <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+          <div className="search-results-container">
             {searchResult?.slice(0, 4).map((user) => (
               <div
                 key={user._id}
                 onClick={() => handleAddUser(user)}
-                className="p-2 hover:bg-gray-200 cursor-pointer rounded"
+                className="search-result-item"
               >
-                <p>{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                <p className="user-name">{user.name}</p>
+                <p className="user-email">{user.email}</p>
               </div>
             ))}
           </div>
         )}
 
-        <div className="flex justify-end mt-4">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-300 rounded mr-2">
+        <div className="modal-actions">
+          <button onClick={onClose} className="cancel-button">
             Cancel
           </button>
-          <button onClick={handleSubmit} className="px-4 py-2 bg-blue-500 text-white rounded">
+          <button onClick={handleSubmit} className="create-button">
             Create
           </button>
         </div>

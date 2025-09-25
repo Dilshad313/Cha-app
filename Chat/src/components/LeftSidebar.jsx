@@ -1,5 +1,6 @@
 // Frontend: components/LeftSidebar/LeftSidebar.jsx
 import React, { useState, useEffect } from "react";
+import './LeftSidebar.css';
 import assets from "../assets/assets";
 import { useApp } from "../context/AppContext";
 import GroupChatModal from "./GroupChatModal";
@@ -9,11 +10,11 @@ import { toast } from "react-toastify";
 
 /* -------------------- Reusable Components -------------------- */
 const UserAvatar = ({ src, isOnline }) => (
-  <div className="relative">
-    <img src={src || assets.profile_img} alt="avatar" className="w-10 h-10 rounded-full" />
+  <div className="user-avatar-container">
+    <img src={src || assets.profile_img} alt="avatar" className="user-avatar" />
     {typeof isOnline === "boolean" && (
       <img
-        className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full"
+        className="status-indicator"
         src={isOnline ? assets.green_dot : assets.grey_dot}
         alt="status"
       />
@@ -23,56 +24,56 @@ const UserAvatar = ({ src, isOnline }) => (
 
 const FriendItem = ({ friend, isOnline, isActive, onClick }) => (
   <div
-    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-gray-100 ${isActive ? "bg-gray-200" : ""}`}
+    className={`friend-item ${isActive ? "active" : ""}`}
     onClick={onClick}
   >
     <UserAvatar src={friend.avatar} isOnline={isOnline} />
     <div>
-      <p className="font-semibold">{friend.name}</p>
-      <span className="text-sm text-gray-500">Click to chat</span>
+      <p className="friend-name">{friend.name}</p>
+      <span className="friend-status">Click to chat</span>
     </div>
   </div>
 );
 
 const GroupItem = ({ group, isActive, onClick }) => (
   <div
-    className={`flex items-center gap-4 p-2 rounded-md cursor-pointer hover:bg-gray-100 ${isActive ? "bg-gray-200" : ""}`}
+    className={`group-item ${isActive ? "active" : ""}`}
     onClick={onClick}
   >
-    <div className="relative">
-      <img src={assets.group_icon || assets.profile_img} alt="group" className="w-10 h-10 rounded-full" />
+    <div className="group-icon-container">
+      <img src={assets.group_icon || assets.profile_img} alt="group" className="group-icon" />
     </div>
     <div>
-      <p className="font-semibold">{group.groupName}</p>
-      <span className="text-sm text-gray-500">Group Chat ({group.participants.length})</span>
+      <p className="group-name">{group.groupName}</p>
+      <span className="group-members">Group Chat ({group.participants.length})</span>
     </div>
   </div>
 );
 
 const RequestItem = ({ request, onAccept, onReject }) => (
-  <div className="flex items-center gap-4 p-2 rounded-md">
+  <div className="request-item">
     <UserAvatar src={request.from.avatar} />
-    <div className="flex-1">
-      <p className="font-semibold">{request.from.name}</p>
-      <span className="text-sm text-gray-500">Friend Request</span>
+    <div className="request-info">
+      <p className="request-name">{request.from.name}</p>
+      <span className="request-label">Friend Request</span>
     </div>
-    <div className="flex gap-2">
-      <button onClick={() => onAccept(request._id)} className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm">Accept</button>
-      <button onClick={() => onReject(request._id)} className="bg-gray-300 px-3 py-1 rounded-md text-sm">Reject</button>
+    <div className="request-actions">
+      <button onClick={() => onAccept(request._id)} className="accept-button">Accept</button>
+      <button onClick={() => onReject(request._id)} className="reject-button">Reject</button>
     </div>
   </div>
 );
 
 const SearchResultItem = ({ result, isOnline, onChat, onAdd }) => (
-  <div className="flex items-center gap-4 p-2 rounded-md">
+  <div className="search-result-item">
     <UserAvatar src={result.avatar} isOnline={isOnline} />
-    <div className="flex-1">
-      <p className="font-semibold">{result.name}</p>
-      <span className="text-sm text-gray-500">{result.username}</span>
+    <div className="search-result-info">
+      <p className="search-result-name">{result.name}</p>
+      <span className="search-result-username">{result.username}</span>
     </div>
-    <div className="flex gap-2">
-      <button onClick={() => onChat(result._id)} className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm">Chat</button>
-      <button onClick={() => onAdd(result._id)} className="bg-green-500 text-white px-3 py-1 rounded-md text-sm">Add</button>
+    <div className="search-result-actions">
+      <button onClick={() => onChat(result._id)} className="chat-button">Chat</button>
+      <button onClick={() => onAdd(result._id)} className="add-button">Add</button>
     </div>
   </div>
 );
@@ -190,58 +191,58 @@ function LeftSidebar({ closeSidebar }) {
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="bg-white h-full flex flex-col p-4">
+    <div className="sidebar-container">
       {/* Top Nav */}
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <img src={assets.logo} className="w-24" alt="logo" />
-          <button onClick={closeSidebar} className="md:hidden">
-            <img src={assets.close_icon} alt="Close" className="w-6 h-6" />
+      <div className="top-nav">
+        <div className="logo-container">
+          <img src={assets.logo} className="logo" alt="logo" />
+          <button onClick={closeSidebar} className="close-button">
+            <img src={assets.close_icon} alt="Close" className="close-icon" />
           </button>
-          <div className="relative">
-            <img src={assets.menu_icon} alt="menu" className="cursor-pointer" />
-            <div className="absolute hidden bg-white shadow-md rounded-md py-2 w-40 right-0">
-              <p className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Edit profile</p>
+          <div className="menu-container">
+            <img src={assets.menu_icon} alt="menu" className="menu-icon" />
+            <div className="menu-dropdown">
+              <p className="menu-item">Edit profile</p>
               <hr />
-              <p className="px-4 py-2 hover:bg-gray-100 cursor-pointer">Logout</p>
+              <p className="menu-item">Logout</p>
             </div>
           </div>
         </div>
-        <div className="relative">
-          <img src={assets.search_icon} alt="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" />
+        <div className="search-container">
+          <img src={assets.search_icon} alt="search" className="search-icon" />
           <input
             type="text"
             placeholder="Search here..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="w-full bg-gray-100 border border-gray-200 rounded-full py-2 px-10 focus:outline-none"
+            className="search-input"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex justify-around my-4 border-b">
-        <button onClick={() => setActiveTab("friends")} className={`py-2 ${activeTab === 'friends' ? 'border-b-2 border-blue-500' : ''}`}>
+      <div className="tabs-container">
+        <button onClick={() => setActiveTab("friends")} className={`tab-button ${activeTab === 'friends' ? 'active' : ''}`}>
           Friends ({friends.length})
         </button>
-        <button onClick={() => setActiveTab("groups")} className={`py-2 ${activeTab === 'groups' ? 'border-b-2 border-blue-500' : ''}`}>
+        <button onClick={() => setActiveTab("groups")} className={`tab-button ${activeTab === 'groups' ? 'active' : ''}`}>
           Groups ({groups.length})
         </button>
-        <button onClick={() => setActiveTab("requests")} className={`py-2 ${activeTab === 'requests' ? 'border-b-2 border-blue-500' : ''}`}>
+        <button onClick={() => setActiveTab("requests")} className={`tab-button ${activeTab === 'requests' ? 'active' : ''}`}>
           Requests ({friendRequests.length})
         </button>
         {searchQuery.trim() && (
-          <button onClick={() => setActiveTab("search")} className={`py-2 ${activeTab === 'search' ? 'border-b-2 border-blue-500' : ''}`}>
+          <button onClick={() => setActiveTab("search")} className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}>
             Search
           </button>
         )}
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="list-container">
         {isSearching ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="spinner-container">
+            <div className="spinner"></div>
           </div>
         ) : (
           <>
@@ -259,7 +260,7 @@ function LeftSidebar({ closeSidebar }) {
                     />
                   ))
                 ) : (
-                  <div className="text-center py-4 text-gray-500">
+                  <div className="empty-search-message">
                     {searchQuery.trim() ? "No users found" : "Type to search users"}
                   </div>
                 )}
@@ -310,7 +311,7 @@ function LeftSidebar({ closeSidebar }) {
 
       {/* Create Group Button */}
       <button
-        className="bg-blue-500 text-white rounded-full py-2 px-4 self-center mt-4"
+        className="create-group-button"
         onClick={() => setIsGroupModalOpen(true)}
       >
         Create Group

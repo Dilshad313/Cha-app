@@ -41,5 +41,19 @@ router.post('/:chatId/message/:messageId/reaction', authMiddleware, addReaction)
 router.delete('/:chatId/message/:messageId/reaction', authMiddleware, removeReaction);
 router.post('/:chatId/read', authMiddleware, markAsRead);
 
+export const getChatMedia = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ message: 'Chat not found' });
+    const media = chat.messages.filter(m => m.image).map(m => ({ url: m.image, timestamp: m.timestamp }));
+    res.json({ success: true, media });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+router.get('/:chatId/media', authMiddleware, getChatMedia);
+
 
 export default router;

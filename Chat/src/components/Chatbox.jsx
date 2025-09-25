@@ -1,8 +1,10 @@
 // Frontend: components/Chatbox/Chatbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
+import './Chatbox.css';
 import assets from '../assets/assets';
 import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
+import { chatsAPI } from '../config/api';
 
 function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
   const [newMessage, setNewMessage] = useState("");
@@ -41,31 +43,27 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
       return;
     }
 
+    let imageUrl = null;
+    if (selectedImage) {
+      // Upload image to backend or storage and get URL
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+      // You should have an API endpoint for image upload, e.g. /api/chats/:chatId/message
+      const res = await chatsAPI.sendMessage(currentChat._id, formData);
+      imageUrl = res.data?.image; // Adjust based on your backend response
+    }
+
     if (editingMessage) {
       editMessage(currentChat._id, editingMessage._id, newMessage);
       setEditingMessage(null);
     } else {
-      try {
-        if (socket) {
-          sendMessage(currentChat._id, newMessage, selectedImage);
-          sendTypingIndicator(currentChat._id, false);
-        } else {
-          const formData = new FormData();
-          formData.append('content', newMessage);
-          if (selectedImage) {
-            formData.append('image', selectedImage);
-          }
-          await chatsAPI.sendMessage(currentChat._id, formData);
-        }
-
-        setNewMessage("");
-        setSelectedImage(null);
-        scrollToBottom();
-      } catch (error) {
-        console.error('Error sending message:', error);
-        toast.error('Error sending message');
-      }
+      sendMessage(currentChat._id, newMessage, imageUrl);
+      sendTypingIndicator(currentChat._id, false);
     }
+
+    setNewMessage("");
+    setSelectedImage(null);
+    scrollToBottom();
   };
 
   const handleInputChange = (e) => {
@@ -149,7 +147,7 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
 
   if (!currentChat) {
     return (
-      <div className="h-[75vh] relative bg-gray-800 text-white">
+      <div className="chatbox-container">
         <div className="flex h-full items-center justify-center">
           <p className="text-gray-400">Select a chat to start messaging</p>
         </div>
@@ -162,107 +160,107 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
   const typingUsersList = getTypingUsers();
 
   return (
-    <div className="h-[75vh] relative bg-gray-800 flex flex-col text-white">
+    <div className="chatbox-container">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 border-b border-gray-700 px-4 py-2 bg-gray-900">
-        <button onClick={toggleLeftSidebar} className="md:hidden text-white">
-          <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
+      <div className="chat-header">
+        <button onClick={toggleLeftSidebar} className="menu-button">
+          <img src={assets.menu_icon} alt="Menu" className="menu-icon" />
         </button>
-        {currentChat.isGroup ? (
+        {currentChat.isGroupChat ? (
           <>
-            <img src={assets.group_icon || assets.profile_img} alt="" className="w-10 h-10 rounded-full" />
-            <p className="flex-1 font-medium text-lg flex items-center gap-2">
+            <img src={assets.group_icon || assets.profile_img} alt="" className="group-icon" />
+            <p className="chat-name">
               {currentChat.groupName}
-              <img className="w-2.5 h-2.5" src={assets.green_dot} alt="" />
+              <img className="online-indicator" src={assets.green_dot} alt="" />
             </p>
           </>
         ) : (
           <>
-            <img src={otherParticipant?.avatar || assets.profile_img} alt="" className="w-10 h-10 rounded-full" />
-            <p className="flex-1 font-medium text-lg flex items-center gap-2">
+            <img src={otherParticipant?.avatar || assets.profile_img} alt="" className="group-icon" />
+            <p className="chat-name">
               {otherParticipant?.name || 'Unknown User'}
               <img
-                className="w-2.5 h-2.5"
+                className="online-indicator"
                 src={isOtherUserOnline ? assets.green_dot : assets.grey_dot}
                 alt=""
               />
             </p>
           </>
         )}
-        <button onClick={toggleRightSidebar} className="md:hidden text-white">
-          <img src={assets.menu_icon} alt="Menu" className="w-6 h-6" />
+        <button onClick={toggleRightSidebar} className="menu-button">
+          <img src={assets.menu_icon} alt="Menu" className="menu-icon" />
         </button>
-        <img src={assets.help_icon} className="w-6 h-6 cursor-pointer hidden md:block" alt="" />
+        <img src={assets.help_icon} className="help-icon" alt="" />
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-scroll flex flex-col-reverse pb-16 px-2 bg-gray-800">
+      <div className="chat-messages">
         {currentChat.messages.map((message, index) => {
           if (message.deleted) {
             return (
-              <div key={index} className={`flex gap-2 px-4 ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
-                <p className="bg-gray-700 text-gray-400 text-sm px-3 py-1 rounded-md">[Message deleted]</p>
+              <div key={index} className={`message-container ${message.sender._id === user._id ? 'sent' : 'received'}`}>
+                <p className="deleted-message">[Message deleted]</p>
               </div>
             );
           }
 
           return (
-            <div key={index} className={`flex gap-2 px-4 my-2 ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
+            <div key={index} className={`message-container ${message.sender._id === user._id ? 'sent' : 'received'}`}>
               {editingMessage?._id === message._id ? (
-                <div className="flex gap-2">
+                <div className="edit-message-container">
                   <input
                     type="text"
                     value={newMessage}
                     onChange={handleInputChange}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="border border-gray-600 rounded px-2 py-1 text-sm bg-gray-700 text-white"
+                    className="edit-message-input"
                   />
-                  <button onClick={handleSendMessage} className="px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700">Save</button>
-                  <button onClick={handleCancelEdit} className="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700">Cancel</button>
+                  <button onClick={handleSendMessage} className="save-button">Save</button>
+                  <button onClick={handleCancelEdit} className="cancel-button">Cancel</button>
                 </div>
               ) : message.image ? (
-                <img className="max-w-[230px] mb-2 rounded-lg" src={message.image} alt="Message attachment" />
+                <img className="message-image" src={message.image} alt="Message attachment" />
               ) : (
-                <p className={`text-white text-sm font-normal px-3 py-2 max-w-[250px] rounded-lg ${message.sender._id === user._id ? 'bg-purple-600 rounded-br-none' : 'bg-gray-700 rounded-bl-none'}`}>
+                <p className={`message-content ${message.sender._id === user._id ? 'sent' : 'received'}`}>
                   {message.content}
                 </p>
               )}
-              <div className="text-[10px] text-center text-gray-400">
-                <div className="flex gap-1">
+              <div className="message-info">
+                <div className="reactions-container">
                   {message.reactions && Object.entries(message.reactions).map(([emoji, users]) => (
-                    <span key={emoji} className="cursor-pointer" onClick={() => handleRemoveReaction(emoji)}>
+                    <span key={emoji} className="reaction" onClick={() => handleRemoveReaction(emoji)}>
                       {emoji} {users.length}
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-1">
+                <div className="message-actions">
                   {message.sender._id === user._id && !editingMessage && (
                     <>
-                      <button onClick={() => handleEdit(message)} className="text-xs text-blue-400 hover:underline">Edit</button>
-                      <button onClick={() => handleDelete(message._id)} className="text-xs text-red-400 hover:underline">Delete</button>
+                      <button onClick={() => handleEdit(message)} className="action-button">Edit</button>
+                      <button onClick={() => handleDelete(message._id)} className="delete-button">Delete</button>
                     </>
                   )}
-                  <button onClick={() => handleToggleReaction(message._id)} className="text-xs text-gray-400 hover:underline">React</button>
+                  <button onClick={() => handleToggleReaction(message._id)} className="react-button">React</button>
                 </div>
                 {showReactions === message._id && (
-                  <div className="flex gap-1 mt-1">
+                  <div className="add-reaction-container">
                     {['👍', '❤️', '😂', '😮', '😢'].map(r => (
-                      <button key={r} onClick={() => handleAddReaction(r)} className="text-lg">{r}</button>
+                      <button key={r} onClick={() => handleAddReaction(r)} className="add-reaction-button">{r}</button>
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                  <img src={message.sender.avatar || assets.profile_img} alt="" className="w-6 h-6 rounded-full" />
+                <div className="message-meta">
+                  <img src={message.sender.avatar || assets.profile_img} alt="" className="sender-avatar" />
                   <p>{formatTime(message.timestamp)}</p>
-                  {message.edited && <span>Edited</span>}
-                  {isMessageRead(message) && <span className="text-green-400">Seen</span>}
+                  {message.edited && <span className='edited-indicator'>Edited</span>}
+                  {isMessageRead(message) && <span className="seen-indicator">Seen</span>}
                 </div>
               </div>
             </div>
           );
         })}
         {typingUsersList.length > 0 && (
-          <div className="px-4 text-xs italic text-gray-400">
+          <div className="typing-indicator">
             {typingUsersList.map(u => u.name).join(', ')} {typingUsersList.length > 1 ? 'are' : 'is'} typing...
           </div>
         )}
@@ -270,15 +268,21 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
       </div>
 
       {/* Chat Input */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 absolute bottom-0 left-0 right-0">
+      <div className="chat-input-container">
         <input
           type="text"
           placeholder={editingMessage ? 'Edit message...' : 'Send a Message'}
           value={newMessage}
           onChange={handleInputChange}
           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          className="flex-1 border-none outline-none text-sm bg-gray-700 text-white px-3 py-2 rounded-full"
+          className="chat-input"
         />
+        {selectedImage && (
+          <div className="image-preview-container">
+            <img src={URL.createObjectURL(selectedImage)} alt="Preview" className="image-preview" />
+            <button onClick={() => setSelectedImage(null)} className="remove-image-button">Remove</button>
+          </div>
+        )}
         <input
           type="file"
           id="image"
@@ -286,14 +290,14 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
           hidden
           onChange={handleImageSelect}
         />
-        <label htmlFor="image" className="cursor-pointer">
-          <img src={assets.gallery_icon} alt="Attach" className="w-6 h-6" />
+        <label htmlFor="image" className="attach-button-label">
+          <img src={assets.gallery_icon} alt="Attach" className="attach-icon" />
         </label>
-        <button onClick={handleSendMessage} className="p-2 bg-purple-600 rounded-full hover:bg-purple-700">
+        <button onClick={handleSendMessage} className="send-button">
           <img
             src={assets.send_button}
             alt="Send"
-            className="w-6 h-6"
+            className="send-icon"
           />
         </button>
       </div>

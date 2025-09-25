@@ -65,7 +65,7 @@ export const AppProvider = ({ children }) => {
           if (chat._id === message.chatId) {
             return {
               ...chat,
-              messages: [...chat.messages, message],
+              messages: [...(chat.messages || []), message],
               updatedAt: message.timestamp,
             };
           }

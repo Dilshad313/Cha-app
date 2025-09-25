@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './GroupSettings.css';
 import { useApp } from '../context/AppContext';
 import { toast } from 'react-toastify';
 import { chatsAPI, usersAPI } from '../config/api';
@@ -92,54 +93,54 @@ const GroupSettings = () => {
     }
 
     return (
-        <div className="p-4 h-full flex flex-col">
-            <h2 className="text-xl font-bold mb-4">Group Settings</h2>
+        <div className="group-settings-container">
+            <h2 className="group-settings-title">Group Settings</h2>
 
-            <div className="flex flex-col items-center mb-4">
-                <div className="relative">
-                    <img src={currentChat.groupIcon || assets.group_icon} alt="group icon" className="w-24 h-24 rounded-full" />
+            <div className="group-header">
+                <div className="group-icon-container">
+                    <img src={currentChat.groupIcon || assets.group_icon} alt="group icon" className="group-icon" />
                     {isAdmin && (
-                        <label htmlFor="group-icon-upload" className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer">
-                            <img src={assets.edit_icon} alt="edit" className="w-4 h-4" />
-                            <input id="group-icon-upload" type="file" className="hidden" onChange={handleIconChange} accept="image/*" />
+                        <label htmlFor="group-icon-upload" className="edit-icon-label">
+                            <img src={assets.edit_icon} alt="edit" className="edit-icon" />
+                            <input id="group-icon-upload" type="file" className="hidden-input" onChange={handleIconChange} accept="image/*" />
                         </label>
                     )}
                 </div>
-                <div className="flex items-center mt-2">
+                <div className="group-name-container">
                     {isEditingName ? (
                         <input
                             type="text"
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
-                            className="text-lg font-semibold border-b-2 border-blue-500"
+                            className="group-name-input"
                             onBlur={handleRenameGroup}
                             autoFocus
                         />
                     ) : (
-                        <h3 className="text-lg font-semibold">{currentChat.chatName}</h3>
+                        <h3 className="group-name">{currentChat.chatName}</h3>
                     )}
                     {isAdmin && (
-                        <button onClick={() => setIsEditingName(!isEditingName)} className="ml-2">
-                            <img src={assets.edit_icon} alt="edit" className="w-4 h-4" />
+                        <button onClick={() => setIsEditingName(!isEditingName)} className="edit-name-button">
+                            <img src={assets.edit_icon} alt="edit" className="edit-icon" />
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="mb-4">
-                <h4 className="font-bold mb-2">Members ({currentChat.participants.length})</h4>
-                <div className="max-h-48 overflow-y-auto">
+            <div className="members-container">
+                <h4 className="members-title">Members ({currentChat.participants.length})</h4>
+                <div className="members-list">
                     {currentChat.participants.map(p => (
-                        <div key={p._id} className="flex items-center justify-between p-2 hover:bg-gray-100 rounded-md">
-                            <div className="flex items-center gap-2">
+                        <div key={p._id} className="member-item">
+                            <div className="member-info">
                                 <UserAvatar src={p.avatar} />
                                 <div>
                                     <p>{p.name}</p>
-                                    {p._id === currentChat.groupAdmin._id && <span className="text-xs text-green-500">Admin</span>}
+                                    {p._id === currentChat.groupAdmin._id && <span className="admin-badge">Admin</span>}
                                 </div>
                             </div>
                             {isAdmin && p._id !== user._id && (
-                                <button onClick={() => handleRemoveUser(p)} className="text-red-500">
+                                <button onClick={() => handleRemoveUser(p)} className="remove-member-button">
                                     Remove
                                 </button>
                             )}
@@ -149,24 +150,24 @@ const GroupSettings = () => {
             </div>
 
             {isAdmin && (
-                <div>
-                    <h4 className="font-bold mb-2">Add Members</h4>
+                <div className="add-members-container">
+                    <h4 className="add-members-title">Add Members</h4>
                     <input
                         type="text"
                         placeholder="Search for users to add"
                         value={search}
                         onChange={(e) => handleSearch(e.target.value)}
-                        className="w-full p-2 border rounded mb-2"
+                        className="search-input"
                     />
                     {loading ? <p>Loading...</p> : (
-                        <div className="max-h-32 overflow-y-auto">
+                        <div className="search-results-list">
                             {searchResult.map(u => (
-                                <div key={u._id} className="flex items-center justify-between p-2 hover:bg-gray-100 rounded-md">
-                                    <div className="flex items-center gap-2">
+                                <div key={u._id} className="add-member-item">
+                                    <div className="add-member-info">
                                         <UserAvatar src={u.avatar} />
                                         <p>{u.name}</p>
                                     </div>
-                                    <button onClick={() => handleAddUser(u)} className="text-blue-500">
+                                    <button onClick={() => handleAddUser(u)} className="add-member-button">
                                         Add
                                     </button>
                                 </div>

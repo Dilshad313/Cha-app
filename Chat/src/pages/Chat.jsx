@@ -19,7 +19,20 @@ function Chat() {
 
         // Set the first chat as current if none is selected
         if (response.data.chats.length > 0 && !currentChat) {
-          setCurrentChat(response.data.chats[0]);
+          const firstChat = response.data.chats[0];
+          setCurrentChat(firstChat);
+          
+          // Load messages for the first chat
+          if (firstChat._id) {
+            try {
+              const messagesResponse = await chatsAPI.getChatMessages(firstChat._id);
+              if (messagesResponse.data && messagesResponse.data.messages) {
+                firstChat.messages = messagesResponse.data.messages;
+              }
+            } catch (err) {
+              console.error('Error loading messages:', err);
+            }
+          }
         }
       } catch (error) {
         console.error('Error loading chats:', error);

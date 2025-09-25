@@ -412,3 +412,10 @@ export const markAsRead = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+// After saving message
+const recipient = chat.participants.find(p => p._id.toString() !== req.user._id.toString());
+const recipientUser = await User.findById(recipient);
+if (recipientUser && recipientUser.pushSubscription && !onlineUsers.has(recipient.toString())) {
+  sendPushNotification(recipientUser.pushSubscription, { title: 'New Message', body: message.content });
+}
