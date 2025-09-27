@@ -17,6 +17,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'https://real-chat-app-silk.vercel.app',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3000'
 ];
 
