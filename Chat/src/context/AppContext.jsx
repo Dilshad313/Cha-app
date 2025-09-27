@@ -124,7 +124,7 @@ export const AppProvider = ({ children }) => {
       console.error('Socket initialization error:', error);
       return null;
     }
-  }, [currentChat]);
+  }, []);
 
   const loadUserData = async () => {
     try {

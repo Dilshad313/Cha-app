@@ -6,7 +6,6 @@ import cors from "cors";
 import http from 'http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from './config/auth.js';
 import connectDB from "./config/database.js";
 import User from './models/User.js';
 import Chat from './models/Chat.js';
@@ -50,7 +49,7 @@ io.use(async (socket, next) => {
       return next(new Error('Authentication error: No token provided'));
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {
