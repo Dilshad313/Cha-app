@@ -62,4 +62,7 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
+// Index for friends list
+userSchema.index({ friends: 1 });
+
 export default mongoose.model('User', userSchema);
