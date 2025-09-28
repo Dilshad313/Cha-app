@@ -356,9 +356,6 @@ io.on('connection', (socket) => {
         console.log(`User ${socket.userId} is now offline`);
       }
     }
-
-    // Cleanup any remaining references
-    onlineUsers.delete(socket.userId);
   });
 
   // Error handling
