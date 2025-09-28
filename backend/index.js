@@ -391,14 +391,9 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = process.env.PORT || 5000;
+// Connect to database
+connectDB();
 
-// Connect to database and start server
-connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`✅ Socket.io server initialized`);
-  });
-});
-
-export default app;
+// In a serverless environment, Vercel handles the server lifecycle.
+// We export the http.Server instance that Express and Socket.IO are attached to.
+export default server;
