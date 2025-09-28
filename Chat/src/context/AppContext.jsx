@@ -51,40 +51,41 @@ export const AppProvider = ({ children }) => {
     initializeApp();
   }, []);
 
-  const initSocket = useCallback((token) => {
-    try {
+  // Effect for managing socket connection
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (user && token) {
       const newSocket = io(socketBaseUrl, {
         auth: { token },
-        timeout: 10000,
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
 
       newSocket.on('connect', () => {
-        console.log('✅ Connected to server');
+        console.log('✅ Socket connected:', newSocket.id);
         setApiConnected(true);
+        loadChats();
+        loadFriends();
+        loadFriendRequests();
       });
 
       newSocket.on('disconnect', (reason) => {
-        console.log('❌ Disconnected from server:', reason);
+        console.log('❌ Socket disconnected:', reason);
         if (reason === 'io server disconnect') {
           newSocket.connect();
         }
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('Socket connection error:', error.message);
         setApiConnected(false);
         if (error.message.includes('Invalid token')) {
           logoutUser();
         }
       });
 
-      newSocket.on('online-users', (users) => setOnlineUsers(users));
-      newSocket.on('user-online', (userId) => setOnlineUsers(prev => [...new Set([...prev, userId])]));
-      newSocket.on('user-offline', (userId) => setOnlineUsers(prev => prev.filter(id => id !== userId)));
-
+      newSocket.on('online-users', setOnlineUsers);
       newSocket.on('receive-message', (data) => {
         const { chatId, ...message } = data;
         setChats(prevChats => {
@@ -106,49 +107,39 @@ export const AppProvider = ({ children }) => {
       });
 
       const typingTimeouts = {};
-      newSocket.on('user-typing', ({ userId, isTyping, chatId }) => {
+      newSocket.on('user-typing', ({ userId, isTyping, chatId, userName }) => {
         const key = `${chatId}-${userId}`;
+        setTypingUsers(prev => ({ ...prev, [key]: isTyping ? { name: userName } : undefined }));
+
+        if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
+
         if (isTyping) {
-          setTypingUsers(prev => ({ ...prev, [key]: true }));
-          if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
-          typingTimeouts[key] = setTimeout(() => setTypingUsers(prev => ({ ...prev, [key]: false })), 3000);
-        } else {
-          setTypingUsers(prev => ({ ...prev, [key]: false }));
-          if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
+          typingTimeouts[key] = setTimeout(() => {
+            setTypingUsers(prev => ({ ...prev, [key]: undefined }));
+          }, 3000);
         }
       });
 
       setSocket(newSocket);
-      return newSocket;
-    } catch (error) {
-      console.error('Socket initialization error:', error);
-      return null;
+
+      return () => {
+        console.log('Cleaning up socket connection...');
+        newSocket.disconnect();
+      };
     }
-  }, []);
+  }, [user]);
 
   const loadUserData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await usersAPI.getProfile();
       setUser(response.data.user);
-
-      const token = localStorage.getItem('token');
-      if (token) {
-        const socketInstance = initSocket(token);
-        if (socketInstance) {
-          await Promise.allSettled([loadChats(), loadFriends(), loadFriendRequests()]);
-        }
-      }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Failed to load user data:', error);
+      localStorage.removeItem('token');
+      setUser(null);
       if (error.response?.status === 401) {
         toast.error('Session expired. Please log in again.');
-        logoutUser();
-      } else if (error.message.includes('timeout')) {
-        toast.error('Server is not responding. Please try again later.');
-        setApiConnected(false);
-      } else {
-        toast.error('Failed to load user data.');
       }
     } finally {
       setLoading(false);
@@ -185,38 +176,32 @@ export const AppProvider = ({ children }) => {
   };
 
   const loginUser = async (email, password) => {
-    try {
-      const response = await authAPI.login({ email, password });
-      localStorage.setItem('token', response.data.token);
-      await loadUserData();
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await authAPI.login({ email, password });
+    localStorage.setItem('token', response.data.token);
+    await loadUserData();
+    return response.data;
   };
 
   const registerUser = async (userData) => {
-    try {
-      const response = await authAPI.register(userData);
-      localStorage.setItem('token', response.data.token);
-      await loadUserData();
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await authAPI.register(userData);
+    localStorage.setItem('token', response.data.token);
+    await loadUserData();
+    return response.data;
   };
 
   const logoutUser = async () => {
-    try { await authAPI.logout(); } catch (error) { console.error('Logout API error:', error); }
-    finally {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
       localStorage.removeItem('token');
       setUser(null);
+      setSocket(null);
       setChats([]);
       setFriends([]);
       setFriendRequests([]);
       setCurrentChat(null);
-      if (socket) socket.disconnect();
-      setSocket(null);
       window.location.href = '/';
     }
   };
