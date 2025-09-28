@@ -53,8 +53,10 @@ export const AppProvider = ({ children }) => {
 
   // Effect for managing socket connection
   useEffect(() => {
+    console.log('[Socket Effect] Running effect, user:', user);
     const token = localStorage.getItem('token');
     if (user && token) {
+      console.log('[Socket Effect] User and token found, creating new socket...');
       const newSocket = io(socketBaseUrl, {
         auth: { token },
         reconnection: true,
@@ -65,44 +67,53 @@ export const AppProvider = ({ children }) => {
       newSocket.on('connect', () => {
         console.log('✅ Socket connected:', newSocket.id);
         setApiConnected(true);
-        loadChats();
-        loadFriends();
-        loadFriendRequests();
       });
 
       newSocket.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
+        console.log(`[Socket] Disconnected: ${reason}`);
         if (reason === 'io server disconnect') {
+          console.log('[Socket] Attempting to reconnect...');
           newSocket.connect();
         }
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error.message);
+        console.error(`[Socket] Connection Error: ${error.message}`);
         setApiConnected(false);
         if (error.message.includes('Invalid token')) {
+          console.log('[Socket] Invalid token, logging out...');
           logoutUser();
         }
       });
 
       newSocket.on('online-users', setOnlineUsers);
       newSocket.on('receive-message', (data) => {
-        const { chatId, ...message } = data;
-        setChats(prevChats => {
-          const updatedChats = prevChats.map(chat => {
-            if (chat._id === chatId) {
-              const messageExists = chat.messages?.some(m => m._id === message._id);
-              if (!messageExists) {
-                return { ...chat, messages: [...(chat.messages || []), message], updatedAt: message.timestamp };
-              }
-            }
-            return chat;
-          });
-          return updatedChats.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-        });
+        const { chatId, tempId, ...message } = data;
+
+        const updateMessages = (messages) => {
+          // Remove the temporary message if it exists
+          const filteredMessages = messages.filter(m => m._id !== tempId);
+
+          // Add the confirmed message, avoiding duplicates
+          if (!filteredMessages.some(m => m._id === message._id)) {
+            return [...filteredMessages, message];
+          }
+          return filteredMessages;
+        };
+
+        setChats(prevChats =>
+          prevChats.map(chat =>
+            chat._id === chatId
+              ? { ...chat, messages: updateMessages(chat.messages || []), updatedAt: message.timestamp }
+              : chat
+          ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+        );
 
         if (currentChat?._id === chatId) {
-          setCurrentChat(prev => ({ ...prev, messages: [...(prev.messages || []), message] }));
+          setCurrentChat(prev => ({
+            ...prev,
+            messages: updateMessages(prev.messages || []),
+          }));
         }
       });
 
@@ -128,6 +139,16 @@ export const AppProvider = ({ children }) => {
       };
     }
   }, [user]);
+
+  // Effect for loading initial data after socket connection
+  useEffect(() => {
+    if (socket) {
+      console.log('[Data Effect] Socket connected, loading initial data...');
+      loadChats();
+      loadFriends();
+      loadFriendRequests();
+    }
+  }, [socket]);
 
   const loadUserData = async () => {
     setLoading(true);
@@ -206,25 +227,35 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const sendMessage = async (chatId, content, image = null) => {
-    if (socket) {
-      socket.emit('send-message', {
-        chatId,
-        content: content || '',
-        image: image || null,
-        timestamp: new Date()
-      });
-    } else {
-      try {
-        const formData = new FormData();
-        if (content) formData.append('content', content);
-        if (image) formData.append('image', image);
-        await chatsAPI.sendMessage(chatId, formData);
-      } catch (error) {
-        console.error('Error sending message:', error);
-        toast.error('Failed to send message');
-      }
+  const sendMessage = (chatId, content, image = null) => {
+    if (!socket) {
+      toast.error("Not connected to server. Cannot send message.");
+      return;
     }
+
+    const tempId = `temp_${Date.now()}`;
+    const messageData = {
+      _id: tempId,
+      sender: { _id: user._id, name: user.name, avatar: user.avatar },
+      content: content || '',
+      image: image || null,
+      timestamp: new Date().toISOString(),
+      isSending: true,
+    };
+
+    // Optimistic UI update
+    setChats(prevChats =>
+      prevChats.map(chat =>
+        chat._id === chatId
+          ? { ...chat, messages: [...(chat.messages || []), messageData] }
+          : chat
+      )
+    );
+    if (currentChat?._id === chatId) {
+      setCurrentChat(prev => ({ ...prev, messages: [...(prev.messages || []), messageData] }));
+    }
+
+    socket.emit('send-message', { chatId, content, image, tempId });
   };
 
   const joinChat = (chatId) => { if (socket) socket.emit('join-chat', chatId); };

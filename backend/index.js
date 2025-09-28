@@ -80,7 +80,7 @@ const onlineUsers = new Map();
 const userSockets = new Map();
 
 io.on('connection', (socket) => {
-  console.log('✅ User connected:', socket.user?.name, socket.userId);
+  console.log(`✅ New connection: ${socket.id}, User: ${socket.user?.name} (${socket.userId})`);
 
   // Add user to online users
   onlineUsers.set(socket.userId, {
@@ -121,7 +121,7 @@ io.on('connection', (socket) => {
   // Handle sending messages
   socket.on('send-message', async (data) => {
     try {
-      const { chatId, content, image } = data;
+      const { chatId, content, image, tempId } = data;
       
       // Validate chat access
       const chat = await Chat.findById(chatId).populate('participants');
@@ -155,7 +155,7 @@ io.on('connection', (socket) => {
       };
 
       // Emit to all participants in the chat
-      io.to(chatId).emit('receive-message', { ...populatedMessage, chatId });
+      io.to(chatId).emit('receive-message', { ...populatedMessage, chatId, tempId });
 
       // Notify participants who are not in the chat
       chat.participants.forEach(participant => {
@@ -340,7 +340,7 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {
-    console.log('❌ User disconnected:', socket.userId, 'Reason:', reason);
+    console.log(`❌ Disconnected: ${socket.id}, User: ${socket.userId}, Reason: ${reason}`);
 
     // Remove socket from user's sockets
     if (userSockets.has(socket.userId)) {
