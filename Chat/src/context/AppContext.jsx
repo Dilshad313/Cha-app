@@ -26,7 +26,7 @@ export const AppProvider = ({ children }) => {
   const [friendRequests, setFriendRequests] = useState([]);
   const [apiConnected, setApiConnected] = useState(true);
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const apiBaseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
   const socketBaseUrl = apiBaseUrl.replace(/\/api$/, '');
 
   useEffect(() => {
