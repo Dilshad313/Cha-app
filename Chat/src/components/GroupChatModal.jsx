@@ -24,7 +24,7 @@ const GroupChatModal = ({ isOpen, onClose }) => {
       const { data } = await usersAPI.searchUsers(query);
       setSearchResult(data.users);
     } catch (error) {
-      toast.error('Failed to load search results');
+      toast.error(error.response?.data?.message || 'Failed to load search results');
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ const GroupChatModal = ({ isOpen, onClose }) => {
       setSearchResult([]);
       setSelectedUsers([]);
     } catch (error) {
-      toast.error('Failed to create group');
+      toast.error(error.response?.data?.message || 'Failed to create group');
     }
   };
 

@@ -25,6 +25,11 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
 
   useEffect(() => {
     scrollToBottom();
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
   }, [currentChat?.messages]);
 
   const handleSendMessage = () => {
@@ -111,7 +116,7 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 h-0">
         {currentChat.messages?.map((message) => {
           const isSender = message.sender._id === user._id;
           return (

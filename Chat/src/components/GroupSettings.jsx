@@ -30,7 +30,7 @@ const GroupSettings = () => {
             setIsEditingName(false);
             toast.success('Group name updated');
         } catch (error) {
-            toast.error('Failed to rename group');
+            toast.error(error.response?.data?.message || 'Failed to rename group');
         }
     };
 
@@ -46,7 +46,7 @@ const GroupSettings = () => {
             setCurrentChat(data.chat);
             toast.success('Group icon updated');
         } catch (error) {
-            toast.error('Failed to update group icon');
+            toast.error(error.response?.data?.message || 'Failed to update group icon');
         }
     };
 
@@ -61,7 +61,7 @@ const GroupSettings = () => {
             const { data } = await usersAPI.searchUsers(query);
             setSearchResult(data.users);
         } catch (error) {
-            toast.error('Failed to search users');
+            toast.error(error.response?.data?.message || 'Failed to search users');
         } finally {
             setLoading(false);
         }
@@ -75,7 +75,7 @@ const GroupSettings = () => {
             setSearch('');
             setSearchResult([]);
         } catch (error) {
-            toast.error('Failed to add user');
+            toast.error(error.response?.data?.message || 'Failed to add user');
         }
     };
 
@@ -89,7 +89,7 @@ const GroupSettings = () => {
             setCurrentChat(data.chat);
             toast.success(`${userToRemove.name} removed from the group`);
         } catch (error) {
-            toast.error('Failed to remove user');
+            toast.error(error.response?.data?.message || 'Failed to remove user');
         }
     };
     

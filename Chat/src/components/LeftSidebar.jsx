@@ -57,7 +57,7 @@ const GroupItem = ({ group, isActive, onClick }) => (
       />
     </div>
     <div>
-      <p className="font-semibold">{group.groupName}</p>
+      <p className="font-semibold">{group.chatName}</p>
       <span className="text-sm text-gray-500">Group Chat ({group.participants.length})</span>
     </div>
   </div>
@@ -181,8 +181,8 @@ function LeftSidebar({ closeSidebar }) {
       setCurrentChat(newChat);
       setSearchQuery("");
       setSearchResults([]);
-    } catch {
-      toast.error("Error creating chat");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error creating chat");
     }
   };
 
@@ -190,8 +190,8 @@ function LeftSidebar({ closeSidebar }) {
     try {
       await usersAPI.sendFriendRequest(userId);
       toast.success("Friend request sent");
-    } catch {
-      toast.error("Error sending request");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error sending request");
     }
   };
 
@@ -201,8 +201,8 @@ function LeftSidebar({ closeSidebar }) {
       loadFriendRequests();
       loadFriends();
       toast.success("Friend request accepted");
-    } catch {
-      toast.error("Error accepting request");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error accepting request");
     }
   };
 
@@ -211,8 +211,8 @@ function LeftSidebar({ closeSidebar }) {
       await usersAPI.rejectFriendRequest(requestId);
       loadFriendRequests();
       toast.success("Request rejected");
-    } catch {
-      toast.error("Error rejecting request");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error rejecting request");
     }
   };
 

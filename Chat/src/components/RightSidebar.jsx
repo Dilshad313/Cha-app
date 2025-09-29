@@ -10,7 +10,7 @@ function RightSidebar({ closeSidebar }) {
     try {
       await logoutUser();
     } catch (error) {
-      console.error('Logout error:', error);
+      toast.error(error.response?.data?.message || 'Logout error');
     }
   };
 
