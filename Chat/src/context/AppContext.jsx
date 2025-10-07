@@ -1,5 +1,5 @@
 // context/AppContext.js
-import { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { authAPI, usersAPI, chatsAPI, checkApiHealth } from '../config/api';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
@@ -25,20 +25,35 @@ export const AppProvider = ({ children }) => {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [apiConnected, setApiConnected] = useState(true);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
+  const socketRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  
   const apiBaseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
   const socketBaseUrl = apiBaseUrl.replace(/\/api$/, '');
 
+  // Health check function
+  const performHealthCheck = useCallback(async () => {
+    try {
+      const isHealthy = await checkApiHealth();
+      setApiConnected(isHealthy);
+      return isHealthy;
+    } catch (error) {
+      setApiConnected(false);
+      return false;
+    }
+  }, []);
+
+  // Initialize app
   useEffect(() => {
     const initializeApp = async () => {
-      const isHealthy = await checkApiHealth();
+      const isHealthy = await performHealthCheck();
       if (!isHealthy) {
         console.warn('API server is not reachable');
         setLoading(false);
-        setApiConnected(false);
         return;
       }
-      setApiConnected(true);
 
       const token = localStorage.getItem('token');
       if (token) {
@@ -49,107 +64,255 @@ export const AppProvider = ({ children }) => {
     };
 
     initializeApp();
-  }, []);
+  }, [performHealthCheck]);
 
-  // Effect for managing socket connection
-  useEffect(() => {
-    console.log('[Socket Effect] Running effect, user:', user);
+  // Socket connection management
+  const connectSocket = useCallback(() => {
+    if (!user || socketRef.current?.connected) return;
+
     const token = localStorage.getItem('token');
-    if (user && token) {
-      console.log('[Socket Effect] User and token found, creating new socket...');
-      const newSocket = io(socketBaseUrl, {
-        auth: { token },
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+    if (!token) return;
 
-      newSocket.on('connect', () => {
-        console.log('✅ Socket connected:', newSocket.id);
-        setApiConnected(true);
-      });
+    console.log('[Socket] Connecting to:', socketBaseUrl);
+    
+    const newSocket = io(socketBaseUrl, {
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+    });
 
-      newSocket.on('disconnect', (reason) => {
-        console.log(`[Socket] Disconnected: ${reason}`);
-        if (reason === 'io server disconnect') {
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connected:', newSocket.id);
+      setApiConnected(true);
+      setReconnectAttempts(0);
+      
+      // Join user's personal room
+      newSocket.emit('join-user-room', user._id);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log(`[Socket] Disconnected: ${reason}`);
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        setApiConnected(false);
+      }
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error(`[Socket] Connection Error: ${error.message}`);
+      setApiConnected(false);
+      setReconnectAttempts(prev => prev + 1);
+      
+      if (error.message.includes('Invalid token')) {
+        console.log('[Socket] Invalid token, logging out...');
+        logoutUser();
+        return;
+      }
+      
+      // Exponential backoff for reconnection
+      if (reconnectAttempts < 5) {
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        reconnectTimeoutRef.current = setTimeout(() => {
           console.log('[Socket] Attempting to reconnect...');
           newSocket.connect();
-        }
-      });
+        }, delay);
+      }
+    });
 
-      newSocket.on('connect_error', (error) => {
-        console.error(`[Socket] Connection Error: ${error.message}`);
-        setApiConnected(false);
-        if (error.message.includes('Invalid token')) {
-          console.log('[Socket] Invalid token, logging out...');
-          logoutUser();
-        }
-      });
+    // Real-time event handlers
+    newSocket.on('online-users', (users) => {
+      setOnlineUsers(users);
+    });
 
-      newSocket.on('online-users', setOnlineUsers);
-      newSocket.on('receive-message', (data) => {
-        const { chatId, tempId, ...message } = data;
+    newSocket.on('user-online', (userId) => {
+      setOnlineUsers(prev => [...new Set([...prev, userId])]);
+    });
 
-        const updateMessages = (messages) => {
-          // Remove the temporary message if it exists
-          const filteredMessages = messages.filter(m => m._id !== tempId);
+    newSocket.on('user-offline', (userId) => {
+      setOnlineUsers(prev => prev.filter(id => id !== userId));
+    });
 
-          // Add the confirmed message, avoiding duplicates
-          if (!filteredMessages.some(m => m._id === message._id)) {
-            return [...filteredMessages, message];
-          }
-          return filteredMessages;
-        };
+    newSocket.on('receive-message', handleReceiveMessage);
+    newSocket.on('message-sent', handleMessageSent);
+    newSocket.on('message-error', handleMessageError);
+    newSocket.on('user-typing', handleUserTyping);
+    newSocket.on('new-chat', handleNewChat);
+    newSocket.on('chat-updated', handleChatUpdated);
 
-        setChats(prevChats =>
-          prevChats.map(chat =>
-            chat._id === chatId
-              ? { ...chat, messages: updateMessages(chat.messages || []), updatedAt: message.timestamp }
-              : chat
-          ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-        );
+    socketRef.current = newSocket;
+    setSocket(newSocket);
 
-        if (currentChat?._id === chatId) {
-          setCurrentChat(prev => ({
-            ...prev,
-            messages: updateMessages(prev.messages || []),
-          }));
-        }
-      });
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      newSocket.disconnect();
+    };
+  }, [user, reconnectAttempts]);
 
-      const typingTimeouts = {};
-      newSocket.on('user-typing', ({ userId, isTyping, chatId, userName }) => {
-        const key = `${chatId}-${userId}`;
-        setTypingUsers(prev => ({ ...prev, [key]: isTyping ? { name: userName } : undefined }));
-
-        if (typingTimeouts[key]) clearTimeout(typingTimeouts[key]);
-
-        if (isTyping) {
-          typingTimeouts[key] = setTimeout(() => {
-            setTypingUsers(prev => ({ ...prev, [key]: undefined }));
-          }, 3000);
-        }
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        console.log('Cleaning up socket connection...');
-        newSocket.disconnect();
-      };
-    }
-  }, [user]);
-
-  // Effect for loading initial data after socket connection
   useEffect(() => {
-    if (socket) {
-      console.log('[Data Effect] Socket connected, loading initial data...');
+    if (user && apiConnected) {
+      const cleanup = connectSocket();
+      return cleanup;
+    }
+  }, [user, apiConnected, connectSocket]);
+
+  // Load initial data after socket connection
+  useEffect(() => {
+    if (socket && user) {
       loadChats();
       loadFriends();
       loadFriendRequests();
     }
-  }, [socket]);
+  }, [socket, user]);
 
+  // Message handlers
+  const handleReceiveMessage = useCallback((data) => {
+    const { chatId, message, tempId } = data;
+
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          const updatedMessages = [...(chat.messages || [])];
+          
+          // Remove temp message if exists
+          if (tempId) {
+            const tempIndex = updatedMessages.findIndex(m => m._id === tempId);
+            if (tempIndex !== -1) {
+              updatedMessages.splice(tempIndex, 1);
+            }
+          }
+          
+          // Add new message if not already exists
+          if (!updatedMessages.some(m => m._id === message._id)) {
+            updatedMessages.push(message);
+          }
+          
+          return {
+            ...chat,
+            messages: updatedMessages,
+            updatedAt: message.timestamp
+          };
+        }
+        return chat;
+      }).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    });
+
+    // Update current chat if it's the same
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        const updatedMessages = [...(prev.messages || [])];
+        
+        if (tempId) {
+          const tempIndex = updatedMessages.findIndex(m => m._id === tempId);
+          if (tempIndex !== -1) {
+            updatedMessages.splice(tempIndex, 1);
+          }
+        }
+        
+        if (!updatedMessages.some(m => m._id === message._id)) {
+          updatedMessages.push(message);
+        }
+        
+        return { ...prev, messages: updatedMessages };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMessageSent = useCallback((data) => {
+    const { chatId, message, tempId } = data;
+    
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          const updatedMessages = chat.messages?.map(m => 
+            m._id === tempId 
+              ? { ...message, isSending: false }
+              : m
+          ) || [message];
+          
+          return { ...chat, messages: updatedMessages };
+        }
+        return chat;
+      });
+    });
+
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        const updatedMessages = prev.messages?.map(m => 
+          m._id === tempId 
+            ? { ...message, isSending: false }
+            : m
+        ) || [message];
+        
+        return { ...prev, messages: updatedMessages };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMessageError = useCallback((data) => {
+    const { tempId, error } = data;
+    
+    // Remove the failed message or mark it as failed
+    setChats(prevChats => {
+      return prevChats.map(chat => ({
+        ...chat,
+        messages: chat.messages?.filter(m => m._id !== tempId) || []
+      }));
+    });
+
+    setCurrentChat(prev => {
+      if (prev) {
+        return {
+          ...prev,
+          messages: prev.messages?.filter(m => m._id !== tempId) || []
+        };
+      }
+      return prev;
+    });
+    
+    toast.error(error || 'Failed to send message');
+  }, []);
+
+  const handleUserTyping = useCallback(({ userId, isTyping, chatId, userName }) => {
+    const key = `${chatId}-${userId}`;
+    setTypingUsers(prev => ({
+      ...prev,
+      [key]: isTyping ? { name: userName } : undefined
+    }));
+
+    // Auto-clear typing after 5 seconds
+    if (isTyping) {
+      setTimeout(() => {
+        setTypingUsers(prev => ({ ...prev, [key]: undefined }));
+      }, 5000);
+    }
+  }, []);
+
+  const handleNewChat = useCallback((chat) => {
+    setChats(prev => {
+      if (!prev.some(c => c._id === chat._id)) {
+        return [chat, ...prev];
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleChatUpdated = useCallback((updatedChat) => {
+    setChats(prev => prev.map(chat => 
+      chat._id === updatedChat._id ? updatedChat : chat
+    ));
+    
+    setCurrentChat(prev => 
+      prev?._id === updatedChat._id ? updatedChat : prev
+    );
+  }, []);
+
+  // Data loading functions
   const loadUserData = async () => {
     setLoading(true);
     try {
@@ -170,13 +333,19 @@ export const AppProvider = ({ children }) => {
   const loadChats = async () => {
     try {
       const response = await chatsAPI.getUserChats();
-      setChats(response.data.chats || []);
+      const sortedChats = (response.data.chats || []).sort(
+        (a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)
+      );
+      setChats(sortedChats);
     } catch (error) {
       console.error('Error loading chats:', error);
+      if (!error.response || error.response.status >= 500) {
+        toast.error('Failed to load chats. Please check your connection.');
+      }
     }
   };
 
-  const loadFriends = async () => {
+  const loadFriends = useCallback(async () => {
     try {
       const response = await usersAPI.getFriends();
       setFriends(response.data.friends || []);
@@ -184,9 +353,9 @@ export const AppProvider = ({ children }) => {
       console.error('Error loading friends:', error);
       setFriends([]);
     }
-  };
+  }, []);
 
-  const loadFriendRequests = async () => {
+  const loadFriendRequests = useCallback(async () => {
     try {
       const response = await usersAPI.getFriendRequests();
       setFriendRequests(response.data.requests || []);
@@ -194,8 +363,9 @@ export const AppProvider = ({ children }) => {
       console.error('Error loading friend requests:', error);
       setFriendRequests([]);
     }
-  };
+  }, []);
 
+  // Auth functions
   const loginUser = async (email, password) => {
     const response = await authAPI.login({ email, password });
     localStorage.setItem('token', response.data.token);
@@ -216,6 +386,18 @@ export const AppProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
+      // Clear socket connection
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      
+      // Clear timeouts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Clear state
       localStorage.removeItem('token');
       setUser(null);
       setSocket(null);
@@ -223,50 +405,124 @@ export const AppProvider = ({ children }) => {
       setFriends([]);
       setFriendRequests([]);
       setCurrentChat(null);
+      setOnlineUsers([]);
+      setTypingUsers({});
+      
+      // Redirect
       window.location.href = '/';
     }
   };
 
-  const sendMessage = (chatId, content, image = null) => {
-    if (!socket) {
+  // Message functions
+  const sendMessage = useCallback(async (chatId, content, image = null) => {
+    if (!socket || !user) {
       toast.error("Not connected to server. Cannot send message.");
       return;
     }
 
-    const tempId = `temp_${Date.now()}`;
-    const messageData = {
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempMessage = {
       _id: tempId,
       sender: { _id: user._id, name: user.name, avatar: user.avatar },
       content: content || '',
-      image: image || null,
+      image: image ? URL.createObjectURL(image) : null,
       timestamp: new Date().toISOString(),
       isSending: true,
     };
 
     // Optimistic UI update
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat._id === chatId
-          ? { ...chat, messages: [...(chat.messages || []), messageData] }
-          : chat
-      )
-    );
+    const updateChatMessages = (prevChats) => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: [...(chat.messages || []), tempMessage],
+            updatedAt: tempMessage.timestamp
+          };
+        }
+        return chat;
+      }).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    };
+
+    setChats(updateChatMessages);
+    
     if (currentChat?._id === chatId) {
-      setCurrentChat(prev => ({ ...prev, messages: [...(prev.messages || []), messageData] }));
+      setCurrentChat(prev => ({
+        ...prev,
+        messages: [...(prev.messages || []), tempMessage]
+      }));
     }
 
-    socket.emit('send-message', { chatId, content, image, tempId });
+    try {
+      // Prepare form data for file upload
+      if (image) {
+        const formData = new FormData();
+        formData.append('content', content || '');
+        formData.append('image', image);
+        formData.append('tempId', tempId);
+        
+        socket.emit('send-message-with-file', { chatId, formData: formData, tempId });
+      } else {
+        socket.emit('send-message', { chatId, content, tempId });
+      }
+    } catch (error) {
+      // Remove temp message on error
+      setChats(prevChats => {
+        return prevChats.map(chat => ({
+          ...chat,
+          messages: chat.messages?.filter(m => m._id !== tempId) || []
+        }));
+      });
+      
+      if (currentChat?._id === chatId) {
+        setCurrentChat(prev => ({
+          ...prev,
+          messages: prev.messages?.filter(m => m._id !== tempId) || []
+        }));
+      }
+      
+      toast.error('Failed to send message');
+    }
+  }, [socket, user, currentChat]);
+
+  const sendTypingIndicator = useCallback((chatId, isTyping) => {
+    if (socket && user) {
+      socket.emit('typing', { chatId, isTyping });
+    }
+  }, [socket, user]);
+
+  const deleteMessage = useCallback(async (chatId, messageId) => {
+    if (socket) {
+      socket.emit('delete-message', { chatId, messageId });
+    }
+  }, [socket]);
+
+  const editMessage = useCallback(async (chatId, messageId, content) => {
+    if (socket) {
+      socket.emit('edit-message', { chatId, messageId, content });
+    }
+  }, [socket]);
+
+  const createGroup = async (groupName, participants) => {
+    try {
+      const response = await chatsAPI.createGroup({ 
+        chatName: groupName, 
+        participants 
+      });
+      const newGroup = response.data.group;
+      setChats(prev => [newGroup, ...prev]);
+      return newGroup;
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    }
   };
 
-  const joinChat = (chatId) => { if (socket) socket.emit('join-chat', chatId); };
-  const sendTypingIndicator = (chatId, isTyping) => { if (socket && currentChat) socket.emit('typing', { chatId, isTyping }); };
-  const editMessage = async (chatId, messageId, content) => { if (socket) socket.emit('edit-message', { chatId, messageId, content }); else await chatsAPI.editMessage(chatId, messageId, content).catch(console.error); };
-  const deleteMessage = async (chatId, messageId) => { if (socket) socket.emit('delete-message', { chatId, messageId }); else await chatsAPI.deleteMessage(chatId, messageId).catch(console.error); };
-
   const value = {
-    user, setUser,
-    chats, setChats,
-    currentChat, setCurrentChat,
+    // State
+    user,
+    chats,
+    currentChat,
     socket,
     loading,
     onlineUsers,
@@ -274,22 +530,32 @@ export const AppProvider = ({ children }) => {
     friends,
     friendRequests,
     apiConnected,
-    loadUserData,
+    
+    // Setters
+    setUser,
+    setChats,
+    setCurrentChat,
+    
+    // Auth functions
     loginUser,
     registerUser,
     logoutUser,
+    loadUserData,
+    
+    // Chat functions
     sendMessage,
-    joinChat,
     sendTypingIndicator,
-    editMessage,
     deleteMessage,
-    addReaction: (chatId, messageId, reaction) => { if (socket) socket.emit('add-reaction', { chatId, messageId, reaction }); else chatsAPI.addReaction(chatId, messageId, reaction).catch(console.error); },
-    removeReaction: (chatId, messageId, reaction) => { if (socket) socket.emit('remove-reaction', { chatId, messageId, reaction }); else chatsAPI.removeReaction(chatId, messageId, reaction).catch(console.error); },
-    markMessagesAsRead: (chatId, messageIds) => { if (socket) socket.emit('mark-read', { chatId, messageIds }); else chatsAPI.markAsRead(chatId, messageIds).catch(console.error); },
-    createGroup: async (groupName, participants) => { try { const response = await chatsAPI.createGroup({ chatName: groupName, participants }); const newGroup = response.data.group; setChats(prev => [newGroup, ...prev]); return newGroup; } catch (error) { console.error('Error creating group:', error); throw error; } },
+    editMessage,
+    createGroup,
+    
+    // Data loading functions
     loadFriends,
     loadFriendRequests,
-    checkApiHealth
+    loadChats,
+    
+    // Utility functions
+    checkApiHealth: performHealthCheck,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
