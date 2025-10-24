@@ -81,7 +81,11 @@ export const AppProvider = ({ children }) => {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 10000,
+      timeout: 20000,
+      transports: ['polling', 'websocket'],
+      withCredentials: true,
+      autoConnect: true,
+      forceNew: false,
     });
 
     newSocket.on('connect', () => {
