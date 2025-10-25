@@ -12,11 +12,13 @@ import {
     editMessage,
     deleteMessage,
     addReaction,
-    removeReaction,
-    markAsRead
+    removeReaction,    markAsRead,
+    getChatMedia,
+    uploadImage
 } from '../controllers/chatController.js';
 import authMiddleware from '../middleware/auth.js';
-import { upload } from '../config/cloudinary.js';
+import { upload, uploadToCloudinary } from '../config/cloudinary.js';
+import Chat from '../models/Chat.js';
 
 const router = express.Router();
 
@@ -40,35 +42,9 @@ router.delete('/:chatId/message/:messageId', authMiddleware, deleteMessage);
 router.post('/:chatId/message/:messageId/reaction', authMiddleware, addReaction);
 router.delete('/:chatId/message/:messageId/reaction', authMiddleware, removeReaction);
 router.post('/:chatId/read', authMiddleware, markAsRead);
-
-export const getChatMedia = async (req, res) => {
-  try {
-    const { chatId } = req.params;
-    const chat = await Chat.findById(chatId);
-    if (!chat) return res.status(404).json({ message: 'Chat not found' });
-    const media = chat.messages.filter(m => m.image).map(m => ({ url: m.image, timestamp: m.timestamp }));
-    res.json({ success: true, media });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 router.get('/:chatId/media', authMiddleware, getChatMedia);
 
 // Upload image endpoint
-router.post('/upload-image', authMiddleware, upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image provided' });
-    }
-    
-    const result = await uploadToCloudinary(req.file.buffer, 'chat-app/images');
-    res.json({ success: true, imageUrl: result.secure_url });
-  } catch (error) {
-    console.error('Image upload error:', error);
-    res.status(500).json({ message: 'Error uploading image' });
-  }
-});
-
+router.post('/upload-image', authMiddleware, upload.single('image'), uploadImage);
 
 export default router;

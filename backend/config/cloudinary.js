@@ -63,21 +63,54 @@ const upload = multer({ storage });
 // Upload buffer to Cloudinary
 const uploadToCloudinary = (buffer, folder = "chat-app") => {
   return new Promise((resolve, reject) => {
+    console.log('📤 Starting Cloudinary upload...', {
+      bufferSize: buffer?.length,
+      folder,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME
+    });
+
+    if (!buffer || buffer.length === 0) {
+      const error = new Error('Empty buffer provided');
+      console.error("❌ Upload error:", error.message);
+      return reject(error);
+    }
+
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder },
+      { 
+        folder,
+        resource_type: 'auto',
+        timeout: 60000
+      },
       (error, result) => {
         if (error) {
-          console.error("❌ Cloudinary upload error:", error);
+          console.error("❌ Cloudinary upload error:", {
+            message: error.message,
+            statusCode: error.http_code,
+            error: error
+          });
           return reject(error);
         }
-        console.log("✅ File uploaded to Cloudinary successfully");
+        console.log("✅ File uploaded to Cloudinary successfully:", {
+          url: result.secure_url,
+          publicId: result.public_id
+        });
         resolve(result);
       }
     );
 
-    const bufferStream = new PassThrough();
-    bufferStream.end(buffer);
-    bufferStream.pipe(uploadStream);
+    uploadStream.on('error', (streamError) => {
+      console.error("❌ Upload stream error:", streamError);
+      reject(streamError);
+    });
+
+    try {
+      const bufferStream = new PassThrough();
+      bufferStream.end(buffer);
+      bufferStream.pipe(uploadStream);
+    } catch (pipeError) {
+      console.error("❌ Stream pipe error:", pipeError);
+      reject(pipeError);
+    }
   });
 };
 

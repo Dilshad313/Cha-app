@@ -54,21 +54,59 @@ export const sendMessage = async (req, res) => {
     const { chatId } = req.params;
     const { content } = req.body;
     let imageUrl = null;
+    let audioUrl = null;
+
+    console.log('Send message request:', { chatId, hasFile: !!req.file, content, mimetype: req.file?.mimetype });
 
     // If there's a file, upload to Cloudinary
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'chat-app/messages');
-      imageUrl = result.secure_url;
+      try {
+        console.log('Uploading file to Cloudinary:', { 
+          size: req.file.size, 
+          mimetype: req.file.mimetype 
+        });
+        
+        // Check if Cloudinary is configured
+        if (!process.env.CLOUDINARY_CLOUD_NAME || 
+            !process.env.CLOUDINARY_API_KEY || 
+            !process.env.CLOUDINARY_API_SECRET) {
+          console.error('❌ Cloudinary credentials not configured');
+          return res.status(500).json({ 
+            message: 'Upload service not configured. Please contact administrator.' 
+          });
+        }
+        
+        // Determine if it's an audio file
+        const isAudio = req.file.mimetype.startsWith('audio/');
+        const folder = isAudio ? 'chat-app/audio' : 'chat-app/messages';
+        
+        const result = await uploadToCloudinary(req.file.buffer, folder);
+        
+        if (isAudio) {
+          audioUrl = result.secure_url;
+          console.log('✅ Audio file uploaded successfully:', audioUrl);
+        } else {
+          imageUrl = result.secure_url;
+          console.log('✅ Image file uploaded successfully:', imageUrl);
+        }
+      } catch (uploadError) {
+        console.error('❌ Cloudinary upload error:', uploadError);
+        return res.status(500).json({ 
+          message: 'Failed to upload file. Please try again.' 
+        });
+      }
     }
 
-    if (!content && !imageUrl) {
-      return res.status(400).json({ message: 'Message content or image is required' });
+    if (!content && !imageUrl && !audioUrl) {
+      return res.status(400).json({ message: 'Message content, image, or audio is required' });
     }
 
     const message = {
       sender: req.user._id,
       content: content || "",
-      image: imageUrl || ""
+      image: imageUrl || "",
+      audio: audioUrl || "",
+      timestamp: new Date()
     };
 
     const chat = await Chat.findByIdAndUpdate(
@@ -82,10 +120,21 @@ export const sendMessage = async (req, res) => {
     .populate('participants', 'username name avatar isOnline lastSeen')
     .populate('messages.sender', 'username name avatar');
 
-    res.json({ success: true, chat, message: chat.messages[chat.messages.length - 1] });
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    const sentMessage = chat.messages[chat.messages.length - 1];
+    console.log('✅ Message sent successfully:', sentMessage._id);
+    
+    res.json({ success: true, chat, message: sentMessage });
   } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Send message error:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };
 
@@ -409,6 +458,41 @@ export const markAsRead = async (req, res) => {
         res.json({ success: true, message: 'Messages marked as read' });
     } catch (error) {
         console.error('Mark as read error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// get chat media
+export const getChatMedia = async (req, res) => {
+    try {
+        const { chatId } = req.params;
+        const chat = await Chat.findById(chatId);
+        if (!chat) {
+            return res.status(404).json({ message: 'Chat not found' });
+        }
+        // Check if user is a participant
+        if (!chat.participants.some(p => p._id.toString() === req.user._id.toString())) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+        // Filter messages that have images
+        const mediaMessages = chat.messages.filter(message => message.image && message.image !== '');
+        res.json({ success: true, media: mediaMessages });
+    } catch (error) {
+        console.error('Get chat media error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// upload image
+export const uploadImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+        const result = await uploadToCloudinary(req.file.buffer, 'chat-app/images');
+        res.json({ success: true, imageUrl: result.secure_url });
+    } catch (error) {
+        console.error('Upload image error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };

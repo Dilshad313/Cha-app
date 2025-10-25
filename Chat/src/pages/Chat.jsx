@@ -108,18 +108,44 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#596aff] to-[#383699] grid place-items-center">
-      <div className="w-full h-full md:w-[95%] md:h-[75vh] md:max-w-[1000px] bg-[aliceblue] grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] relative">
-        <div className={`absolute top-0 left-0 h-full w-full z-20 md:static md:block ${isLeftSidebarOpen ? 'block' : 'hidden'}`}>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 flex items-center justify-center p-0 md:p-4 lg:p-6">
+      <div className="w-full h-screen md:h-[92vh] lg:h-[90vh] md:max-w-[1400px] lg:max-w-[1600px] bg-white dark:bg-gray-900 grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[340px_1fr_360px] relative md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl md:border md:border-gray-200 dark:md:border-gray-800">
+        {/* Left Sidebar - Chat List */}
+        <div className={`absolute inset-0 z-30 md:static md:z-0 h-full overflow-hidden transform transition-transform duration-300 ease-in-out ${
+          isLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}>
           <LeftSidebar closeSidebar={() => setIsLeftSidebarOpen(false)} />
         </div>
-        <Chatbox 
-          toggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} 
-          toggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)} 
-        />
-        <div className={`absolute top-0 right-0 h-full w-full z-20 md:static md:block ${isRightSidebarOpen ? 'block' : 'hidden'}`}>
+
+        {/* Main Chat Area */}
+        <div className="relative flex flex-col h-full overflow-hidden">
+          <Chatbox 
+            toggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)} 
+            toggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)} 
+          />
+        </div>
+
+        {/* Right Sidebar - Profile/Info (Desktop) */}
+        <div className="hidden lg:block h-full overflow-hidden">
           <RightSidebar closeSidebar={() => setIsRightSidebarOpen(false)} />
         </div>
+
+        {/* Mobile Right Sidebar Overlay */}
+        {isRightSidebarOpen && (
+          <div className="absolute inset-0 z-20 lg:hidden">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setIsRightSidebarOpen(false)} />
+            <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw]">
+              <RightSidebar closeSidebar={() => setIsRightSidebarOpen(false)} />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Left Sidebar Overlay */}
+        {isLeftSidebarOpen && (
+          <div className="absolute inset-0 z-20 md:hidden">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setIsLeftSidebarOpen(false)} />
+          </div>
+        )}
       </div>
     </div>
   );

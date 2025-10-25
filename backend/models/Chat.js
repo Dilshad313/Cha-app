@@ -9,10 +9,14 @@ const messageSchema = new mongoose.Schema({
   content: {
     type: String,
     required: function() {
-      return !this.image; // Content is required if no image
+      return !this.image && !this.audio; // Content is required if no image or audio
     }
   },
   image: {
+    type: String,
+    default: ""
+  },
+  audio: {
     type: String,
     default: ""
   },

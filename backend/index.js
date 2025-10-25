@@ -10,12 +10,16 @@ import jwt from "jsonwebtoken";
 // Import configurations, DB connection, models
 import { JWT_SECRET } from "./config/auth.js";
 import connectDB from "./config/database.js";
+import { configureCloudinary } from "./config/cloudinary.js";
 import User from "./models/User.js";
 import Chat from "./models/Chat.js";
 
 // For file uploads in messages
 import multer from "multer";
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Initialize Cloudinary
+configureCloudinary();
 
 const app = express();
 const server = http.createServer(app);

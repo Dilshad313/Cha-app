@@ -144,6 +144,8 @@ export const AppProvider = ({ children }) => {
     newSocket.on('user-typing', handleUserTyping);
     newSocket.on('new-chat', handleNewChat);
     newSocket.on('chat-updated', handleChatUpdated);
+    newSocket.on('message-deleted', handleMessageDeleted);
+    newSocket.on('message-edited', handleMessageEdited);
 
     socketRef.current = newSocket;
     setSocket(newSocket);
@@ -229,28 +231,46 @@ export const AppProvider = ({ children }) => {
   const handleMessageSent = useCallback((data) => {
     const { chatId, message, tempId } = data;
     
+    console.log('Message sent confirmation received:', { tempId, messageId: message._id, isSending: false });
+    
     setChats(prevChats => {
       return prevChats.map(chat => {
         if (chat._id === chatId) {
-          const updatedMessages = chat.messages?.map(m => 
-            m._id === tempId 
-              ? { ...message, isSending: false }
-              : m
-          ) || [message];
+          let updatedMessages = chat.messages || [];
           
-          return { ...chat, messages: updatedMessages };
+          // Find and replace temp message with real message
+          const tempIndex = updatedMessages.findIndex(m => m._id === tempId);
+          if (tempIndex !== -1) {
+            updatedMessages = [
+              ...updatedMessages.slice(0, tempIndex),
+              { ...message, isSending: false },
+              ...updatedMessages.slice(tempIndex + 1)
+            ];
+          } else if (!updatedMessages.some(m => m._id === message._id)) {
+            // If temp message not found, add the real message
+            updatedMessages = [...updatedMessages, { ...message, isSending: false }];
+          }
+          
+          return { ...chat, messages: updatedMessages, updatedAt: message.timestamp };
         }
         return chat;
-      });
+      }).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
     });
 
     setCurrentChat(prev => {
       if (prev?._id === chatId) {
-        const updatedMessages = prev.messages?.map(m => 
-          m._id === tempId 
-            ? { ...message, isSending: false }
-            : m
-        ) || [message];
+        let updatedMessages = prev.messages || [];
+        
+        const tempIndex = updatedMessages.findIndex(m => m._id === tempId);
+        if (tempIndex !== -1) {
+          updatedMessages = [
+            ...updatedMessages.slice(0, tempIndex),
+            { ...message, isSending: false },
+            ...updatedMessages.slice(tempIndex + 1)
+          ];
+        } else if (!updatedMessages.some(m => m._id === message._id)) {
+          updatedMessages = [...updatedMessages, { ...message, isSending: false }];
+        }
         
         return { ...prev, messages: updatedMessages };
       }
@@ -314,6 +334,74 @@ export const AppProvider = ({ children }) => {
     setCurrentChat(prev => 
       prev?._id === updatedChat._id ? updatedChat : prev
     );
+  }, []);
+
+  const handleMessageDeleted = useCallback((data) => {
+    const { chatId, messageId } = data;
+    
+    console.log('Message deleted event received:', { chatId, messageId });
+    
+    // Update chats state
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: chat.messages?.map(m => 
+              m._id === messageId ? { ...m, deleted: true, content: 'This message was deleted' } : m
+            ) || []
+          };
+        }
+        return chat;
+      });
+    });
+    
+    // Update current chat
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        return {
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, deleted: true, content: 'This message was deleted' } : m
+          ) || []
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMessageEdited = useCallback((data) => {
+    const { chatId, messageId, content } = data;
+    
+    console.log('Message edited event received:', { chatId, messageId, content });
+    
+    // Update chats state
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: chat.messages?.map(m => 
+              m._id === messageId ? { ...m, content, edited: true } : m
+            ) || []
+          };
+        }
+        return chat;
+      });
+    });
+    
+    // Update current chat
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        return {
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, content, edited: true } : m
+          ) || []
+        };
+      }
+      return prev;
+    });
   }, []);
 
   // Data loading functions
@@ -418,7 +506,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // Message functions
-  const sendMessage = useCallback(async (chatId, content, image = null) => {
+  const sendMessage = useCallback(async (chatId, content, image = null, audio = null) => {
     if (!socket || !user) {
       toast.error("Not connected to server. Cannot send message.");
       return;
@@ -427,12 +515,15 @@ export const AppProvider = ({ children }) => {
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const tempMessage = {
       _id: tempId,
-      sender: { _id: user._id, name: user.name, avatar: user.avatar },
+      sender: { _id: user._id, name: user.name, avatar: user.avatar, username: user.username },
       content: content || '',
       image: image ? URL.createObjectURL(image) : null,
+      audio: audio ? URL.createObjectURL(audio) : null,
       timestamp: new Date().toISOString(),
       isSending: true,
     };
+    
+    console.log('Sending message with tempId:', tempId, 'hasAudio:', !!audio, 'isSending:', tempMessage.isSending);
 
     // Optimistic UI update
     const updateChatMessages = (prevChats) => {
@@ -457,19 +548,81 @@ export const AppProvider = ({ children }) => {
       }));
     }
 
-    try {
-      // Prepare form data for file upload
-      if (image) {
-        const formData = new FormData();
-        formData.append('content', content || '');
-        formData.append('image', image);
-        formData.append('tempId', tempId);
-        
-        socket.emit('send-message-with-file', { chatId, formData: formData, tempId });
-      } else {
-        socket.emit('send-message', { chatId, content, tempId });
+    // Set a timeout to remove loading state if no response after 5 seconds
+    const timeoutId = setTimeout(() => {
+      console.warn('Message send timeout - removing loading state');
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              messages: chat.messages?.map(m => 
+                m._id === tempId ? { ...m, isSending: false } : m
+              ) || []
+            };
+          }
+          return chat;
+        });
+      });
+      
+      if (currentChat?._id === chatId) {
+        setCurrentChat(prev => ({
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === tempId ? { ...m, isSending: false } : m
+          ) || []
+        }));
       }
+    }, 5000);
+
+    try {
+      // Use API call to send message
+      const formData = new FormData();
+      formData.append('content', content || '');
+      if (image) {
+        formData.append('image', image);
+      }
+      if (audio) {
+        formData.append('image', audio); // Backend uses 'image' field for all files
+      }
+      
+      const response = await chatsAPI.sendMessage(chatId, formData);
+      clearTimeout(timeoutId);
+      
+      // Update with real message from server
+      const realMessage = response.data.message;
+      
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat._id === chatId) {
+            const updatedMessages = chat.messages?.map(m => 
+              m._id === tempId ? { ...realMessage, isSending: false } : m
+            ) || [realMessage];
+            return { ...chat, messages: updatedMessages, updatedAt: realMessage.timestamp };
+          }
+          return chat;
+        }).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      });
+      
+      if (currentChat?._id === chatId) {
+        setCurrentChat(prev => ({
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === tempId ? { ...realMessage, isSending: false } : m
+          ) || [realMessage]
+        }));
+      }
+      
+      console.log('Message sent successfully:', realMessage._id);
     } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('Send message error:', error);
+      
+      // Get specific error message from server
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Failed to send message';
+      
       // Remove temp message on error
       setChats(prevChats => {
         return prevChats.map(chat => ({
@@ -485,7 +638,7 @@ export const AppProvider = ({ children }) => {
         }));
       }
       
-      toast.error('Failed to send message');
+      toast.error(errorMessage);
     }
   }, [socket, user, currentChat]);
 
@@ -496,16 +649,89 @@ export const AppProvider = ({ children }) => {
   }, [socket, user]);
 
   const deleteMessage = useCallback(async (chatId, messageId) => {
-    if (socket) {
-      socket.emit('delete-message', { chatId, messageId });
+    try {
+      await chatsAPI.deleteMessage(chatId, messageId);
+      
+      // Emit socket event to notify other users
+      if (socket) {
+        socket.emit('delete-message', { chatId, messageId });
+      }
+      
+      // Update chats state
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              messages: chat.messages?.map(m => 
+                m._id === messageId ? { ...m, deleted: true, content: 'This message was deleted' } : m
+              ) || []
+            };
+          }
+          return chat;
+        });
+      });
+      
+      // Update current chat
+      if (currentChat?._id === chatId) {
+        setCurrentChat(prev => ({
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, deleted: true, content: 'This message was deleted' } : m
+          ) || []
+        }));
+      }
+      
+      toast.success('Message deleted');
+    } catch (error) {
+      console.error('Delete message error:', error);
+      toast.error('Failed to delete message');
     }
-  }, [socket]);
+  }, [currentChat, socket]);
 
   const editMessage = useCallback(async (chatId, messageId, content) => {
-    if (socket) {
-      socket.emit('edit-message', { chatId, messageId, content });
+    try {
+      const response = await chatsAPI.editMessage(chatId, messageId, content);
+      const updatedMessage = response.data.message;
+      
+      // Emit socket event to notify other users
+      if (socket) {
+        socket.emit('edit-message', { chatId, messageId, content });
+      }
+      
+      // Update chats state
+      setChats(prevChats => {
+        return prevChats.map(chat => {
+          if (chat._id === chatId) {
+            return {
+              ...chat,
+              messages: chat.messages?.map(m => 
+                m._id === messageId ? { ...m, ...updatedMessage, edited: true } : m
+              ) || []
+            };
+          }
+          return chat;
+        });
+      });
+      
+      // Update current chat
+      if (currentChat?._id === chatId) {
+        setCurrentChat(prev => ({
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, ...updatedMessage, edited: true } : m
+          ) || []
+        }));
+      }
+      
+      toast.success('Message updated');
+      return true;
+    } catch (error) {
+      console.error('Edit message error:', error);
+      toast.error('Failed to edit message');
+      return false;
     }
-  }, [socket]);
+  }, [currentChat, socket]);
 
   const createGroup = async (groupName, participants) => {
     try {
