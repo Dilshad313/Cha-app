@@ -55,6 +55,24 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
     };
   }, [currentChat?.messages, scrollToBottom]);
 
+  // Mark messages as read when viewing chat
+  useEffect(() => {
+    if (currentChat && socket && user) {
+      const unreadMessages = currentChat.messages?.filter(
+        msg => msg.sender?._id !== user._id && msg.status !== 'read'
+      );
+      
+      if (unreadMessages && unreadMessages.length > 0) {
+        unreadMessages.forEach(msg => {
+          socket.emit('mark-message-read', {
+            chatId: currentChat._id,
+            messageId: msg._id
+          });
+        });
+      }
+    }
+  }, [currentChat, socket, user]);
+
   const handleSendMessage = useCallback(async () => {
     if ((!newMessage.trim() && !selectedImage && !audioBlob) || isUploading) return;
     
@@ -458,16 +476,48 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                             id={`audio-${message._id}`}
                             src={message.audio}
                             className="hidden"
+                            onLoadedMetadata={(e) => {
+                              const duration = Math.floor(e.target.duration);
+                              const mins = Math.floor(duration / 60);
+                              const secs = duration % 60;
+                              const timeSpan = document.getElementById(`time-${message._id}`);
+                              if (timeSpan) {
+                                timeSpan.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                              }
+                            }}
+                            onTimeUpdate={(e) => {
+                              const currentTime = Math.floor(e.target.currentTime);
+                              const mins = Math.floor(currentTime / 60);
+                              const secs = currentTime % 60;
+                              const timeSpan = document.getElementById(`time-${message._id}`);
+                              if (timeSpan) {
+                                timeSpan.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                              }
+                            }}
+                            onEnded={(e) => {
+                              const btn = document.getElementById(`btn-${message._id}`);
+                              if (btn) {
+                                btn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>';
+                              }
+                              const duration = Math.floor(e.target.duration);
+                              const mins = Math.floor(duration / 60);
+                              const secs = duration % 60;
+                              const timeSpan = document.getElementById(`time-${message._id}`);
+                              if (timeSpan) {
+                                timeSpan.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                              }
+                            }}
                           />
                           <button
+                            id={`btn-${message._id}`}
                             onClick={(e) => {
                               const audio = document.getElementById(`audio-${message._id}`);
                               if (audio.paused) {
                                 audio.play();
-                                e.target.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>';
+                                e.currentTarget.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>';
                               } else {
                                 audio.pause();
-                                e.target.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>';
+                                e.currentTarget.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>';
                               }
                             }}
                             className={`flex-shrink-0 ${isSender ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`}
@@ -486,7 +536,7 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                                 />
                               ))}
                             </div>
-                            <span className={`text-xs ${isSender ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <span id={`time-${message._id}`} className={`text-xs font-medium ${isSender ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
                               0:00
                             </span>
                           </div>
@@ -506,9 +556,34 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
                             {message.isSending === true ? (
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" title="Sending..."></div>
                             ) : (
-                              <svg className="w-4 h-4 text-white opacity-70" fill="currentColor" viewBox="0 0 20 20" title="Sent">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
+                              <div className="flex items-center">
+                                {message.status === 'read' ? (
+                                  // Two blue ticks for read
+                                  <div className="flex -space-x-1" title="Read">
+                                    <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                    <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                ) : message.status === 'delivered' ? (
+                                  // Two gray ticks for delivered
+                                  <div className="flex -space-x-1" title="Delivered">
+                                    <svg className="w-4 h-4 text-white opacity-60" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                    <svg className="w-4 h-4 text-white opacity-60" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                ) : (
+                                  // One gray tick for sent
+                                  <svg className="w-4 h-4 text-white opacity-60" fill="currentColor" viewBox="0 0 20 20" title="Sent">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
                             )}
                           </>
                         )}

@@ -146,6 +146,8 @@ export const AppProvider = ({ children }) => {
     newSocket.on('chat-updated', handleChatUpdated);
     newSocket.on('message-deleted', handleMessageDeleted);
     newSocket.on('message-edited', handleMessageEdited);
+    newSocket.on('message-delivered', handleMessageDelivered);
+    newSocket.on('message-read', handleMessageRead);
 
     socketRef.current = newSocket;
     setSocket(newSocket);
@@ -226,7 +228,15 @@ export const AppProvider = ({ children }) => {
       }
       return prev;
     });
-  }, []);
+
+    // Emit delivered event if message is from another user
+    if (socketRef.current && message.sender._id !== user?._id) {
+      socketRef.current.emit('mark-message-delivered', {
+        chatId,
+        messageId: message._id
+      });
+    }
+  }, [user]);
 
   const handleMessageSent = useCallback((data) => {
     const { chatId, message, tempId } = data;
@@ -397,6 +407,74 @@ export const AppProvider = ({ children }) => {
           ...prev,
           messages: prev.messages?.map(m => 
             m._id === messageId ? { ...m, content, edited: true } : m
+          ) || []
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMessageDelivered = useCallback((data) => {
+    const { chatId, messageId } = data;
+    
+    console.log('Message delivered event received:', { chatId, messageId });
+    
+    // Update chats state
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: chat.messages?.map(m => 
+              m._id === messageId ? { ...m, status: 'delivered' } : m
+            ) || []
+          };
+        }
+        return chat;
+      });
+    });
+    
+    // Update current chat
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        return {
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, status: 'delivered' } : m
+          ) || []
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleMessageRead = useCallback((data) => {
+    const { chatId, messageId } = data;
+    
+    console.log('Message read event received:', { chatId, messageId });
+    
+    // Update chats state
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: chat.messages?.map(m => 
+              m._id === messageId ? { ...m, status: 'read' } : m
+            ) || []
+          };
+        }
+        return chat;
+      });
+    });
+    
+    // Update current chat
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        return {
+          ...prev,
+          messages: prev.messages?.map(m => 
+            m._id === messageId ? { ...m, status: 'read' } : m
           ) || []
         };
       }

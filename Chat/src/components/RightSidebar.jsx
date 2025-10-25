@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import assets from '../assets/assets';
 import { useApp } from '../context/AppContext';
 import GroupSettings from './GroupSettings';
@@ -6,6 +7,7 @@ import { toast } from 'react-toastify';
 
 function RightSidebar({ closeSidebar }) {
   const { logoutUser, user, onlineUsers, currentChat } = useApp();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -16,6 +18,21 @@ function RightSidebar({ closeSidebar }) {
   };
 
   const isCurrentUserOnline = user && onlineUsers.includes(user._id);
+
+  // Get actual shared media from current chat
+  const sharedMedia = useMemo(() => {
+    if (!currentChat || !currentChat.messages) return [];
+    
+    return currentChat.messages
+      .filter(msg => msg.image || msg.audio)
+      .map(msg => ({
+        id: msg._id,
+        type: msg.image ? 'image' : 'audio',
+        url: msg.image || msg.audio,
+        timestamp: msg.timestamp
+      }))
+      .reverse(); // Show newest first
+  }, [currentChat]);
 
   return (
     <div className="bg-white dark:bg-gray-900 h-full flex flex-col border-l-2 border-gray-200 dark:border-gray-800">
@@ -54,17 +71,28 @@ function RightSidebar({ closeSidebar }) {
               )}
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-              {user?.name || 'User'}
+              {user?.name || user?.username || 'User'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {user?.email || 'user@example.com'}
             </p>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full text-sm">
-              <span className={`w-2 h-2 rounded-full ${isCurrentUserOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-              <span className="font-medium text-gray-700 dark:text-gray-300">
-                {isCurrentUserOnline ? 'Active now' : 'Offline'}
-              </span>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full text-sm">
+                <span className={`w-2 h-2 rounded-full ${isCurrentUserOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {isCurrentUserOnline ? 'Active now' : 'Offline'}
+                </span>
+              </div>
             </div>
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-full mt-3 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-all font-medium flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Profile
+            </button>
           </div>
 
           {/* Bio Section */}
@@ -94,18 +122,38 @@ function RightSidebar({ closeSidebar }) {
               </button>
             </div>
             <div className="max-h-[400px] overflow-y-auto pr-1">
-              <div className="grid grid-cols-3 gap-2">
-                {[assets.pic1, assets.pic2, assets.pic3, assets.pic4, assets.pic1, assets.pic2, assets.pic3, assets.pic4, assets.pic1, assets.pic2, assets.pic3, assets.pic4].map((pic, idx) => (
-                  <div key={idx} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity group relative">
-                    <img src={pic} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
+              {sharedMedia.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {sharedMedia.map((media) => (
+                    <div key={media.id} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity group relative">
+                      {media.type === 'image' ? (
+                        <>
+                          <img src={media.url} alt="" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-green-100 to-teal-100 dark:from-green-900/30 dark:to-teal-900/30 flex items-center justify-center">
+                          <svg className="w-10 h-10 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No shared media yet</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Photos and voice messages will appear here</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

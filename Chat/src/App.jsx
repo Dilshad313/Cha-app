@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useApp } from './context/AppContext';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
+import ProfileSetup from './pages/ProfileSetup';
 import ProfileUpdate from './pages/ProfileUpdate';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -32,6 +33,10 @@ function App() {
         <Route
           path="/chat"
           element={user ? <Chat /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/profile-setup"
+          element={user ? <ProfileSetup /> : <Navigate to="/" />}
         />
         <Route
           path="/profile"

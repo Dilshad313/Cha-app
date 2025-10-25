@@ -35,11 +35,15 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  reactions: {
-    type: Map,
-    of: [mongoose.Schema.Types.ObjectId],
-    default: {}
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent'
   },
+  deliveredTo: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   readBy: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -49,7 +53,12 @@ const messageSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  reactions: {
+    type: Map,
+    of: [mongoose.Schema.Types.ObjectId],
+    default: {}
+  }
 });
 
 const chatSchema = new mongoose.Schema({

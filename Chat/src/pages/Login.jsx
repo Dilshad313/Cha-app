@@ -29,7 +29,7 @@ function Login() {
         }
         await registerUser({ username: userName, email, password, name });
         toast.success("Account created successfully!");
-        navigate("/chat");
+        navigate("/profile-setup");
       } else {
         await loginUser(email, password);
         toast.success("Logged in successfully!");

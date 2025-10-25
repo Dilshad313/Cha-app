@@ -310,7 +310,61 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Mark messages as read for read receipts
+  // Mark message as delivered
+  socket.on("mark-message-delivered", async ({ chatId, messageId }) => {
+    try {
+      const chat = await Chat.findById(chatId);
+      if (!chat) return;
+
+      const message = chat.messages.id(messageId);
+      if (message && message.status === 'sent') {
+        message.status = 'delivered';
+        if (!message.deliveredTo.includes(socket.userId)) {
+          message.deliveredTo.push(socket.userId);
+        }
+        await chat.save();
+
+        // Notify the sender
+        socket.to(chatId).emit("message-delivered", {
+          chatId,
+          messageId,
+        });
+        
+        console.log(`Message ${messageId} marked as delivered in chat ${chatId}`);
+      }
+    } catch (error) {
+      console.error("Error marking message as delivered:", error);
+    }
+  });
+
+  // Mark message as read
+  socket.on("mark-message-read", async ({ chatId, messageId }) => {
+    try {
+      const chat = await Chat.findById(chatId);
+      if (!chat) return;
+
+      const message = chat.messages.id(messageId);
+      if (message) {
+        message.status = 'read';
+        if (!message.readBy.some((r) => r.user.toString() === socket.userId)) {
+          message.readBy.push({ user: socket.userId, readAt: new Date() });
+        }
+        await chat.save();
+
+        // Notify the sender
+        socket.to(chatId).emit("message-read", {
+          chatId,
+          messageId,
+        });
+        
+        console.log(`Message ${messageId} marked as read in chat ${chatId}`);
+      }
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+    }
+  });
+
+  // Mark messages as read for read receipts (legacy)
   socket.on("mark-read", async ({ chatId, messageIds }) => {
     try {
       const chat = await Chat.findById(chatId);

@@ -90,7 +90,7 @@ const ChatItem = ({ chat, user, isOnline, isActive, onClick, onlineUsers }) => {
                 {!isGroupChat && lastMessage.sender?._id !== user._id && lastMessage.sender?.name && (
                   <span className="font-medium">{lastMessage.sender.name}: </span>
                 )}
-                {lastMessage.image ? "📷 Photo" : lastMessage.content || "No message"}
+                {lastMessage.audio ? "🎤 Voice message" : lastMessage.image ? "📷 Photo" : lastMessage.content || "No message"}
               </>
             ) : (
               <span className="italic">

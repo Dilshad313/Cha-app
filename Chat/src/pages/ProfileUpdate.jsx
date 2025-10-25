@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import assets from "../assets/assets";
 import { useApp } from "../context/AppContext";
 import { usersAPI } from "../config/api";
@@ -6,6 +7,7 @@ import { toast } from "react-toastify";
 import Cropper from "react-easy-crop";
 
 function ProfileUpdate() {
+  const navigate = useNavigate();
   const [image, setImage] = useState(null);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
@@ -120,6 +122,7 @@ function ProfileUpdate() {
         setPrevImage(response.data.user.avatar || "");
         setImage(null);
         toast.success("Profile updated successfully!");
+        navigate("/chat");
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message);
