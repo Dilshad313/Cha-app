@@ -321,7 +321,7 @@ function LeftSidebar({ closeSidebar }) {
               <img src={assets.logo_icon} className="w-7 h-7" alt="logo" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">ChatApp</h1>
+              <h1 className="text-xl font-bold text-white">Talko</h1>
               <p className="text-xs text-gray-300">Stay Connected</p>
             </div>
           </div>

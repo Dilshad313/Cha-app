@@ -278,9 +278,9 @@ function Chatbox({ toggleLeftSidebar, toggleRightSidebar }) {
       <div className="h-full flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 hidden md:flex items-center justify-center text-gray-500 dark:text-gray-400">
         <div className="text-center space-y-4 p-8">
           <div className="w-32 h-32 mx-auto bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6">
-            <img src={assets.logo_icon} alt="Chat App" className="w-20 h-20 opacity-60" />
+            <img src={assets.logo_icon} alt="Talko" className="w-20 h-20 opacity-60" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">Welcome to Chat</h2>
+          <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">Welcome to Talko</h2>
           <p className="text-base text-gray-500 dark:text-gray-400 max-w-md">Select a conversation from the sidebar to start messaging</p>
           <div className="flex gap-2 justify-center mt-6">
             <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
