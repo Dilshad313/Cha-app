@@ -3,6 +3,14 @@ import { createContext, useState, useContext, useEffect, useCallback, useRef } f
 import { authAPI, usersAPI, chatsAPI, checkApiHealth } from '../config/api';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
+import { 
+  requestNotificationPermission, 
+  showBrowserNotification, 
+  playNotificationSound,
+  formatNotificationMessage,
+  isChatActive,
+  initializeAudioContext
+} from '../utils/notifications';
 
 const AppContext = createContext();
 
@@ -58,6 +66,10 @@ export const AppProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (token) {
         await loadUserData();
+        // Request notification permission after user loads
+        requestNotificationPermission();
+        // Initialize audio context for notification sounds
+        initializeAudioContext();
       } else {
         setLoading(false);
       }
@@ -148,6 +160,8 @@ export const AppProvider = ({ children }) => {
     newSocket.on('message-edited', handleMessageEdited);
     newSocket.on('message-delivered', handleMessageDelivered);
     newSocket.on('message-read', handleMessageRead);
+    newSocket.on('new-group-chat', handleNewGroupChat);
+    newSocket.on('group-updated', handleGroupUpdated);
 
     socketRef.current = newSocket;
     setSocket(newSocket);
@@ -175,6 +189,27 @@ export const AppProvider = ({ children }) => {
       loadFriendRequests();
     }
   }, [socket, user]);
+
+  // Initialize audio context on first user interaction
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      initializeAudioContext();
+      // Remove listeners after first interaction
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('keydown', handleFirstInteraction);
+    document.addEventListener('touchstart', handleFirstInteraction);
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
 
   // Message handlers
   const handleReceiveMessage = useCallback((data) => {
@@ -235,8 +270,36 @@ export const AppProvider = ({ children }) => {
         chatId,
         messageId: message._id
       });
+
+      // Show notification for new message
+      if (!isChatActive(chatId, currentChat?._id)) {
+        // Find the chat to get chat name
+        const chat = chats.find(c => c._id === chatId);
+        const senderName = message.sender?.name || 'Someone';
+        const chatName = chat?.isGroupChat ? chat.chatName : senderName;
+        const messageText = formatNotificationMessage(message);
+
+        // Play notification sound
+        playNotificationSound();
+
+        // Show toast notification
+        toast.info(`${senderName}: ${messageText}`, {
+          position: 'top-right',
+          autoClose: 4000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+        });
+
+        // Show browser notification
+        showBrowserNotification(chatName, {
+          body: `${senderName}: ${messageText}`,
+          tag: `message-${chatId}`,
+          data: { chatId, messageId: message._id }
+        });
+      }
     }
-  }, [user]);
+  }, [user, currentChat, chats]);
 
   const handleMessageSent = useCallback((data) => {
     const { chatId, message, tempId } = data;
@@ -345,6 +408,98 @@ export const AppProvider = ({ children }) => {
       prev?._id === updatedChat._id ? updatedChat : prev
     );
   }, []);
+
+  const handleNewGroupChat = useCallback((groupChat) => {
+    console.log('New group chat received:', groupChat);
+    
+    setChats(prev => {
+      if (!prev.some(c => c._id === groupChat._id)) {
+        return [groupChat, ...prev];
+      }
+      return prev;
+    });
+
+    // Show notification for new group
+    const adminName = groupChat.groupAdmin?.name || 'Someone';
+    playNotificationSound();
+    
+    toast.success(`${adminName} added you to "${groupChat.chatName}"`, {
+      position: 'top-right',
+      autoClose: 5000,
+    });
+
+    showBrowserNotification('New Group Chat', {
+      body: `${adminName} added you to "${groupChat.chatName}"`,
+      tag: `new-group-${groupChat._id}`,
+    });
+  }, []);
+
+  const handleGroupUpdated = useCallback((data) => {
+    console.log('Group updated event received:', data);
+    const { chatId, chatName, groupIcon, participants } = data;
+
+    // Update chats state
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat._id === chatId) {
+          const updates = {};
+          if (chatName) updates.chatName = chatName;
+          if (groupIcon) updates.groupIcon = groupIcon;
+          if (participants) updates.participants = participants;
+          
+          return { ...chat, ...updates };
+        }
+        return chat;
+      });
+    });
+
+    // Update current chat if it's the same
+    setCurrentChat(prev => {
+      if (prev?._id === chatId) {
+        const updates = {};
+        if (chatName) updates.chatName = chatName;
+        if (groupIcon) updates.groupIcon = groupIcon;
+        if (participants) updates.participants = participants;
+        
+        return { ...prev, ...updates };
+      }
+      return prev;
+    });
+
+    // Show notification for group updates
+    const chat = chats.find(c => c._id === chatId);
+    if (chat && chat.isGroupChat) {
+      let notificationMessage = '';
+      
+      if (chatName) {
+        notificationMessage = `Group name changed to "${chatName}"`;
+      } else if (groupIcon) {
+        notificationMessage = 'Group icon updated';
+      } else if (participants) {
+        const oldCount = chat.participants?.length || 0;
+        const newCount = participants.length;
+        if (newCount > oldCount) {
+          notificationMessage = 'New member added to the group';
+        } else if (newCount < oldCount) {
+          notificationMessage = 'A member was removed from the group';
+        }
+      }
+
+      if (notificationMessage) {
+        playNotificationSound();
+        
+        toast.info(notificationMessage, {
+          position: 'top-right',
+          autoClose: 4000,
+        });
+
+        showBrowserNotification(chat.chatName || 'Group Update', {
+          body: notificationMessage,
+          tag: `group-update-${chatId}`,
+        });
+      }
+    }
+  }, [chats]);
 
   const handleMessageDeleted = useCallback((data) => {
     const { chatId, messageId } = data;
@@ -811,12 +966,17 @@ export const AppProvider = ({ children }) => {
     }
   }, [currentChat, socket]);
 
-  const createGroup = async (groupName, participants) => {
+  const createGroup = async (groupName, participants, groupImage) => {
     try {
-      const response = await chatsAPI.createGroup({ 
-        chatName: groupName, 
-        participants 
-      });
+      const formData = new FormData();
+      formData.append('chatName', groupName);
+      formData.append('participants', JSON.stringify(participants));
+      
+      if (groupImage) {
+        formData.append('groupIcon', groupImage);
+      }
+      
+      const response = await chatsAPI.createGroup(formData);
       const newGroup = response.data.group;
       setChats(prev => [newGroup, ...prev]);
       return newGroup;

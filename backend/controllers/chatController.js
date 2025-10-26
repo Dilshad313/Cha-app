@@ -7,6 +7,7 @@ export const getUserChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.user._id })
       .populate('participants', 'username name avatar isOnline lastSeen')
+      .populate('groupAdmin', 'username name avatar')
       .populate('messages.sender', 'username name avatar')
       .sort({ updatedAt: -1 });
 
@@ -176,18 +177,36 @@ export const getChatMessages = async (req, res) => {
 // Create group chat
 export const createGroupChat = async (req, res) => {
   try {
-    const { chatName, participants } = req.body;
+    const { chatName } = req.body;
+    let { participants } = req.body;
+
+    // Parse participants if it's a JSON string (from FormData)
+    if (typeof participants === 'string') {
+      try {
+        participants = JSON.parse(participants);
+      } catch (e) {
+        return res.status(400).json({ message: 'Invalid participants format' });
+      }
+    }
 
     if (!chatName || !participants || !Array.isArray(participants) || participants.length < 1) {
       return res.status(400).json({ message: 'Group name and at least one participant are required.' });
     }
 
-    const group = new Chat({
+    const groupData = {
       chatName,
       participants: [...participants, req.user._id],
       isGroupChat: true,
       groupAdmin: req.user._id,
-    });
+    };
+
+    // Handle group icon upload if provided
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, 'chat-app/group-icons');
+      groupData.groupIcon = result.secure_url;
+    }
+
+    const group = new Chat(groupData);
 
     await group.save();
     const fullGroupChat = await Chat.findById(group._id)
@@ -196,7 +215,7 @@ export const createGroupChat = async (req, res) => {
 
     fullGroupChat.participants.forEach(p => {
         if(p._id.toString() !== req.user._id.toString()) {
-            req.io.to(p._id.toString()).emit('new-group-chat', fullGroupChat);
+            req.io?.to(p._id.toString()).emit('new-group-chat', fullGroupChat);
         }
     });
 
@@ -219,6 +238,15 @@ export const renameGroup = async (req, res) => {
       return res.status(404).json({ message: 'Chat not found' });
     }
 
+    // Debug logging
+    console.log('Rename Group - Admin Check:', {
+      groupAdmin: chat.groupAdmin,
+      groupAdminString: chat.groupAdmin.toString(),
+      userId: req.user._id,
+      userIdString: req.user._id.toString(),
+      isMatch: chat.groupAdmin.toString() === req.user._id.toString()
+    });
+
     if (chat.groupAdmin.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'You are not the admin of this group' });
     }
@@ -226,9 +254,14 @@ export const renameGroup = async (req, res) => {
     chat.chatName = chatName;
     await chat.save();
 
-    req.io.to(chatId).emit('group-updated', { chatId, chatName });
+    // Populate groupAdmin before sending response
+    const updatedChat = await Chat.findById(chatId)
+      .populate('participants', '-password')
+      .populate('groupAdmin', '-password');
 
-    res.json({ success: true, chat });
+    req.io?.to(chatId).emit('group-updated', { chatId, chatName });
+
+    res.json({ success: true, chat: updatedChat });
   } catch (error) {
     console.error('Rename group error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -258,9 +291,14 @@ export const updateGroupIcon = async (req, res) => {
 
         await chat.save();
 
-        req.io.to(chatId).emit('group-updated', { chatId, groupIcon: chat.groupIcon });
+        // Populate groupAdmin before sending response
+        const updatedChat = await Chat.findById(chatId)
+            .populate('participants', '-password')
+            .populate('groupAdmin', '-password');
 
-        res.json({ success: true, chat });
+        req.io?.to(chatId).emit('group-updated', { chatId, groupIcon: chat.groupIcon });
+
+        res.json({ success: true, chat: updatedChat });
 
     } catch (error) {
         console.error('Update group icon error:', error);
@@ -280,6 +318,15 @@ export const addToGroup = async (req, res) => {
       return res.status(404).json({ message: 'Chat not found' });
     }
 
+    // Debug logging
+    console.log('Add to Group - Admin Check:', {
+      groupAdmin: chat.groupAdmin,
+      groupAdminString: chat.groupAdmin.toString(),
+      userId: req.user._id,
+      userIdString: req.user._id.toString(),
+      isMatch: chat.groupAdmin.toString() === req.user._id.toString()
+    });
+
     if (chat.groupAdmin.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'You are not the admin of this group' });
     }
@@ -295,7 +342,7 @@ export const addToGroup = async (req, res) => {
         .populate('participants', '-password')
         .populate('groupAdmin', '-password');
 
-    req.io.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
+    req.io?.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
 
     res.json({ success: true, chat: fullChat });
   } catch (error) {
@@ -316,6 +363,15 @@ export const removeFromGroup = async (req, res) => {
       return res.status(404).json({ message: 'Chat not found' });
     }
 
+    // Debug logging
+    console.log('Remove from Group - Admin Check:', {
+      groupAdmin: chat.groupAdmin,
+      groupAdminString: chat.groupAdmin.toString(),
+      userId: req.user._id,
+      userIdString: req.user._id.toString(),
+      isMatch: chat.groupAdmin.toString() === req.user._id.toString()
+    });
+
     if (chat.groupAdmin.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'You are not the admin of this group' });
     }
@@ -327,8 +383,7 @@ export const removeFromGroup = async (req, res) => {
         .populate('participants', '-password')
         .populate('groupAdmin', '-password');
 
-    req.io.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
-
+    req.io?.to(chatId).emit('group-updated', { chatId, participants: fullChat.participants });
 
     res.json({ success: true, chat: fullChat });
   } catch (error) {

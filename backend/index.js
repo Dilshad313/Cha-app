@@ -421,6 +421,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Middleware to attach io instance to requests for use in controllers if needed
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Import your route files and use them here (example)
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
@@ -429,12 +435,6 @@ import chatRoutes from "./routes/chats.js";
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chats", chatRoutes);
-
-// Middleware to attach io instance to requests for use in controllers if needed
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
 
 const PORT = process.env.PORT || 5000;
 

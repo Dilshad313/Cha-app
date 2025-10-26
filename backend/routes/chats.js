@@ -29,7 +29,7 @@ router.post('/:chatId/message', authMiddleware, upload.single('image'), sendMess
 router.get('/:chatId/messages', authMiddleware, getChatMessages);
 
 // Group chats
-router.post('/group', authMiddleware, createGroupChat);
+router.post('/group', authMiddleware, upload.single('groupIcon'), createGroupChat);
 router.put('/group/:chatId/rename', authMiddleware, renameGroup);
 router.put('/group/:chatId/icon', authMiddleware, upload.single('groupIcon'), updateGroupIcon);
 router.put('/group/:chatId/add', authMiddleware, addToGroup);

@@ -126,7 +126,9 @@ export const chatsAPI = {
   }),
   getChatMessages: (chatId, page = 1, limit = 50) => 
     api.get(`/chats/${chatId}/messages?page=${page}&limit=${limit}`),
-  createGroup: (data) => api.post('/chats/group', data),
+  createGroup: (formData) => api.post('/chats/group', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   renameGroup: (chatId, chatName) => api.put(`/chats/group/${chatId}/rename`, { chatName }),
   updateGroupIcon: (chatId, formData) => api.put(`/chats/group/${chatId}/icon`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
