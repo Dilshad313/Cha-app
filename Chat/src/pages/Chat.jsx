@@ -7,7 +7,8 @@ import { useApp } from '../context/AppContext';
 
 function Chat() {
   const { user, chats, setChats, currentChat, setCurrentChat, loading, apiConnected, checkApiHealth } = useApp();
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  // On mobile, start with left sidebar open; on desktop, it's always visible
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [chatsLoading, setChatsLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
@@ -37,6 +38,17 @@ function Chat() {
 
     loadInitialData();
   }, [user, retryCount, checkApiHealth]);
+
+  // Close left sidebar on mobile when a chat is selected
+  useEffect(() => {
+    if (currentChat) {
+      // Check if we're on mobile (screen width < 768px)
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        setIsLeftSidebarOpen(false);
+      }
+    }
+  }, [currentChat]);
 
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
@@ -108,8 +120,8 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 flex items-center justify-center p-0 md:p-4 lg:p-6">
-      <div className="w-full h-screen md:h-[92vh] lg:h-[90vh] md:max-w-[1400px] lg:max-w-[1600px] bg-white dark:bg-gray-900 grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[340px_1fr_360px] relative md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl md:border md:border-gray-200 dark:md:border-gray-800">
+    <div className="h-screen w-screen md:min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 md:flex md:items-center md:justify-center md:p-4 lg:p-6 overflow-hidden">
+      <div className="w-full h-full md:h-[92vh] lg:h-[90vh] md:max-w-[1400px] lg:max-w-[1600px] bg-white dark:bg-gray-900 grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[340px_1fr_360px] relative md:rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl md:border md:border-gray-200 dark:md:border-gray-800">
         {/* Left Sidebar - Chat List */}
         <div className={`absolute inset-0 z-30 md:static md:z-0 h-full overflow-hidden transform transition-transform duration-300 ease-in-out ${
           isLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
