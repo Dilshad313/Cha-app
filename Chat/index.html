@@ -12,25 +12,60 @@
     <title>Talko</title>
     <style>
       /* Prevent layout shift and ensure proper mobile rendering */
+      :root {
+        /* CSS custom property for real viewport height (fixes mobile browser address bar issue) */
+        --vh: 1vh;
+      }
+      
       html, body {
         margin: 0;
         padding: 0;
         width: 100%;
-        height: 100%;
+        height: 100vh;
+        height: calc(var(--vh, 1vh) * 100);
         overflow: hidden;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        position: fixed;
+        overscroll-behavior: none;
       }
+      
       #root {
         width: 100%;
-        height: 100%;
+        height: 100vh;
+        height: calc(var(--vh, 1vh) * 100);
         overflow: hidden;
       }
+      
       /* Prevent zoom on input focus on iOS */
       input, select, textarea {
         font-size: 16px !important;
       }
+      
+      /* Ensure proper scrolling on mobile */
+      @media (max-width: 768px) {
+        body {
+          position: fixed;
+          width: 100%;
+          height: 100vh;
+          height: calc(var(--vh, 1vh) * 100);
+        }
+      }
     </style>
+    <script>
+      // Set CSS custom property for real viewport height
+      function setVH() {
+        let vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }
+      
+      // Set on load
+      setVH();
+      
+      // Update on resize and orientation change
+      window.addEventListener('resize', setVH);
+      window.addEventListener('orientationchange', setVH);
+    </script>
   </head>
   <body>
     <div id="root"></div>
